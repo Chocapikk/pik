@@ -2,11 +2,17 @@ package console
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"golang.org/x/term"
+
+	"github.com/Chocapikk/pik/pkg/lab"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
@@ -31,7 +37,7 @@ func (c *Console) cmdHelp(args []string) {
 	output.Println()
 	for _, name := range []string{
 		"use", "back", "previous", "show", "set", "setg", "unset", "unsetg", "target", "info",
-		"check", "exploit", "sessions", "kill", "resource", "list", "search", "rank",
+		"check", "exploit", "lab", "sessions", "kill", "resource", "list", "search", "rank",
 	} {
 		cmd, ok := c.commands[name]
 		if !ok || cmd.desc == "" {
@@ -70,41 +76,85 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		output.Warning("No modules loaded")
 		return
 	}
-	output.Println()
-	nameW, relW, descW := 4, 11, 11
+
+	termW := termWidth()
+
+	// Group modules by directory prefix.
+	type entry struct {
+		shortName string
+		mod       sdk.Exploit
+	}
+	groups := make(map[string][]entry)
+	var groupOrder []string
+
 	for _, mod := range modules {
-		info := mod.Info()
-		if w := len(sdk.NameOf(mod)); w > nameW {
-			nameW = w
+		full := sdk.NameOf(mod)
+		dir, short := splitModulePath(full)
+		if _, seen := groups[dir]; !seen {
+			groupOrder = append(groupOrder, dir)
 		}
-		if w := len(info.Reliability.String()); w > relW {
-			relW = w
-		}
-		if w := len(info.Description); w > descW {
-			descW = w
+		groups[dir] = append(groups[dir], entry{short, mod})
+	}
+
+	// Compute short name column width.
+	nameW := 4
+	for _, entries := range groups {
+		for _, e := range entries {
+			if w := len(e.shortName); w > nameW {
+				nameW = w
+			}
 		}
 	}
 
-	output.Print("  %s  %s  %s  %s\n",
-		log.Pad(log.UnderlineText("Name"), nameW),
-		log.Pad(log.UnderlineText("Reliability"), relW),
-		log.Pad(log.UnderlineText("Description"), descW),
-		log.UnderlineText("CVEs"),
-	)
-	for _, mod := range modules {
-		info := mod.Info()
-		cves := strings.Join(info.CVEs(), ", ")
-		if cves == "" {
-			cves = "-"
+	relW := 11
+	cveColW := 14
+	fixedW := 4 + nameW + 2 + relW + 2 + 2 + cveColW
+	descW := termW - fixedW
+	if descW < 20 {
+		descW = 20
+	}
+
+	output.Println()
+	for _, dir := range groupOrder {
+		output.Print("  %s\n", log.Muted(dir+"/"))
+		for _, e := range groups[dir] {
+			info := e.mod.Info()
+			desc := info.Title()
+			if len(desc) > descW {
+				desc = desc[:descW-3] + "..."
+			}
+			cves := info.CVEs()
+			cveStr := "-"
+			if len(cves) == 1 {
+				cveStr = cves[0]
+			} else if len(cves) > 1 {
+				cveStr = fmt.Sprintf("%d CVEs", len(cves))
+			}
+			output.Print("    %s  %s  %s  %s\n",
+				log.Pad(log.Cyan(e.shortName), nameW),
+				log.Pad(reliabilityStyle(info.Reliability), relW),
+				log.Pad(desc, descW),
+				log.Yellow(cveStr),
+			)
 		}
-		output.Print("  %s  %s  %s  %s\n",
-			log.Pad(log.Cyan(sdk.NameOf(mod)), nameW),
-			log.Pad(reliabilityStyle(info.Reliability), relW),
-			log.Pad(info.Description, descW),
-			log.Yellow(cves),
-		)
 	}
 	output.Println()
+}
+
+func splitModulePath(full string) (string, string) {
+	idx := strings.LastIndex(full, "/")
+	if idx < 0 {
+		return "", full
+	}
+	return full[:idx], full[idx+1:]
+}
+
+func termWidth() int {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w < 80 {
+		return 120
+	}
+	return w
 }
 
 func (c *Console) cmdRank() {
@@ -174,7 +224,7 @@ func (c *Console) cmdUse(args []string) {
 	c.targetIdx = 0
 	c.initOptions()
 	c.updatePrompt()
-	output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Description)
+	output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Title())
 }
 
 func (c *Console) cmdBack() {
@@ -223,7 +273,7 @@ func (c *Console) cmdInfo(args []string) {
 	info := mod.Info()
 	output.Println()
 	output.Print("  %s  %s\n", log.Cyan("Name:"), sdk.NameOf(mod))
-	output.Print("  %s  %s\n", log.Cyan("Description:"), info.Description)
+	output.Print("  %s  %s\n", log.Cyan("Description:"), info.Title())
 	if info.Detail != "" {
 		output.Print("\n%s\n", info.Detail)
 	}
@@ -470,4 +520,155 @@ func (c *Console) selectPayload() {
 	}
 	c.setOpt("PAYLOAD", selected)
 	output.Success("PAYLOAD => %s", selected)
+}
+
+// --- Lab ---
+
+func (c *Console) cmdLab(args []string) {
+	if len(args) == 0 {
+		output.Error("Usage: lab <start|stop|status|run>")
+		return
+	}
+	switch strings.ToLower(args[0]) {
+	case "start":
+		c.labStart()
+	case "stop":
+		c.labStop()
+	case "status":
+		c.labStatus()
+	case "run":
+		c.labRun()
+	default:
+		output.Error("Unknown lab command: %s (try: start, stop, status, run)", args[0])
+	}
+}
+
+func (c *Console) labStart() {
+	if !c.requireMod() {
+		return
+	}
+	info := c.mod.Info()
+	if len(info.Lab.Services) == 0 {
+		output.Warning("Module %s has no lab defined", sdk.NameOf(c.mod))
+		return
+	}
+	labName := filepath.Base(sdk.NameOf(c.mod))
+	ctx := context.Background()
+	if err := lab.Start(ctx, labName, info.Lab.Services); err != nil {
+		output.Error("Lab start failed: %v", err)
+		return
+	}
+	output.Success("Lab %s started", labName)
+}
+
+func (c *Console) labStop() {
+	if !c.requireMod() {
+		return
+	}
+	labName := filepath.Base(sdk.NameOf(c.mod))
+	ctx := context.Background()
+	if err := lab.Stop(ctx, labName); err != nil {
+		output.Error("Lab stop failed: %v", err)
+		return
+	}
+	output.Success("Lab %s stopped", labName)
+}
+
+func (c *Console) labStatus() {
+	ctx := context.Background()
+	labs, err := lab.Status(ctx)
+	if err != nil {
+		output.Error("Lab status failed: %v", err)
+		return
+	}
+	if len(labs) == 0 {
+		output.Warning("No labs running")
+		return
+	}
+	output.Println()
+	for _, l := range labs {
+		output.Print("  %s\n", log.Cyan(l.Name))
+		for _, svc := range l.Services {
+			state := log.Green(svc.State)
+			if svc.State != "running" {
+				state = log.Yellow(svc.State)
+			}
+			ports := ""
+			if svc.Ports != "" {
+				ports = " " + log.Gray(svc.Ports)
+			}
+			output.Print("    %s  %s  %s%s\n",
+				log.Pad(svc.Name, 20),
+				log.Pad(state, 12),
+				svc.Image,
+				ports,
+			)
+		}
+	}
+	output.Println()
+}
+
+func (c *Console) labRun() {
+	if !c.requireMod() {
+		return
+	}
+	info := c.mod.Info()
+	if len(info.Lab.Services) == 0 {
+		output.Warning("Module %s has no lab defined", sdk.NameOf(c.mod))
+		return
+	}
+
+	labName := filepath.Base(sdk.NameOf(c.mod))
+	ctx := context.Background()
+
+	// Start lab if not already running.
+	if !lab.IsRunning(ctx, labName) {
+		if err := lab.Start(ctx, labName, info.Lab.Services); err != nil {
+			output.Error("Lab start failed: %v", err)
+			return
+		}
+	} else {
+		output.Success("Lab %s already running", labName)
+	}
+
+	// Derive target from port bindings.
+	target := lab.Target(info.Lab.Services)
+
+	// Phase 1: wait for TCP port to open.
+	output.Status("Waiting for %s", target)
+	if err := lab.WaitReady(ctx, target, 120*time.Second); err != nil {
+		output.Error("Lab not ready: %v", err)
+		return
+	}
+
+	// Set TARGET before probing (Check needs it in params).
+	c.setOpt("TARGET", target)
+	output.Success("TARGET => %s", target)
+
+	// Phase 2: if module has Check(), retry until app is truly ready.
+	if checker, ok := c.mod.(sdk.Checker); ok {
+		output.Status("Probing application readiness")
+		params := c.buildParams()
+		if err := lab.WaitProbe(ctx, 120*time.Second, func() error {
+			_, err := checker.Check(c.buildModuleRun(params, ""))
+			return err
+		}); err != nil {
+			output.Error("Application not ready: %v", err)
+			return
+		}
+	}
+	output.Success("Lab ready at %s", target)
+
+	// Auto-detect LHOST from Docker gateway if not set.
+	if c.getOpt("LHOST") == "" {
+		gw := lab.DockerGateway()
+		if gw == "" {
+			output.Error("Set LHOST before running (container needs to reach your host)")
+			return
+		}
+		c.setOpt("LHOST", gw)
+		output.Success("LHOST => %s (docker gateway)", gw)
+	}
+
+	c.cmdExploit()
 }

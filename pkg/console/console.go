@@ -10,6 +10,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -44,6 +45,8 @@ func Run() error {
 
 // RunWith starts the interactive console with an optional pre-selected module.
 func RunWith(mod sdk.Exploit) error {
+	output.BannerModuleCount = len(sdk.List())
+	output.BannerPayloadCount = len(payload.ListPayloads())
 	output.Banner()
 
 	cons := &Console{globals: make(map[string]string)}
@@ -59,7 +62,7 @@ func RunWith(mod sdk.Exploit) error {
 		cons.targetIdx = 0
 		cons.initOptions()
 		cons.updatePrompt()
-		output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Description)
+		output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Title())
 	}
 
 	for {
@@ -105,6 +108,8 @@ func (c *Console) registerCommands() {
 		"modules": {func(_ []string) { c.cmdList() }, "", ""},
 		"search":  {func(a []string) { c.cmdSearch(a) }, "Search modules by keyword", "Usage: search <keyword>\n\nSearches modules by name, description, or CVE."},
 		"rank":    {func(_ []string) { c.cmdRank() }, "Contributor leaderboard", "Usage: rank\n\nDisplays authors ranked by module count and CVEs."},
+
+		"lab": {func(a []string) { c.cmdLab(a) }, "Manage lab environments", "Usage: lab <start|stop|status|run>\n\nstart   Start the lab for the current module\nstop    Stop the lab for the current module\nstatus  List all running labs\nrun     Start lab, wait for ready, and exploit"},
 
 		// Shortcuts
 		"options":  {func(_ []string) { c.cmdShow([]string{"options"}) }, "", ""},
@@ -180,6 +185,12 @@ func (c *Console) initReadline() error {
 		readline.PcItem("search", readline.PcItemDynamic(func(line string) []string {
 			return sdk.Names()
 		})),
+		readline.PcItem("lab",
+			readline.PcItem("start"),
+			readline.PcItem("stop"),
+			readline.PcItem("status"),
+			readline.PcItem("run"),
+		),
 		readline.PcItem("help", readline.PcItemDynamic(func(line string) []string {
 			var names []string
 			for name, cmd := range c.commands {
@@ -194,7 +205,7 @@ func (c *Console) initReadline() error {
 	// Add remaining commands without sub-completions.
 	for name := range c.commands {
 		switch name {
-		case "use", "set", "setg", "unset", "unsetg", "show", "info", "search", "help":
+		case "use", "set", "setg", "unset", "unsetg", "show", "info", "search", "help", "lab":
 			continue
 		}
 		completer.Children = append(completer.Children, readline.PcItem(name))

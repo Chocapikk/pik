@@ -8,16 +8,17 @@ Go exploit framework. Interactive console with multi-session, multi-C2, CmdStage
 sdk/                Types, interfaces, constants (source of truth)
   exploit.go        Exploit, Checker, CmdStager, CommandExecutor interfaces
   context.go        Execution context with Commands(), Target(), SetCommands(), SetTarget()
-  info.go           Info, Target (Type field is module-defined), CheckResult, Reliability
+  info.go           Info, Target, Lab, Service (wraps Docker SDK types), CheckResult, Reliability
   run.go            sdk.Run() with late binding via SetRunner()
 
 pkg/cli/            CLI + standalone runner
   standalone.go     RunStandaloneWith() + init() registers runner via sdk.SetRunner()
+  cmd_lab.go        `pik lab start|stop|status|run` subcommands
 
 pkg/console/        Interactive REPL (split into focused files)
   console.go        Core REPL, command registry (map[string]command), readline
   options.go        Option init, import target defaults, get/set/build params
-  commands.go       User commands (use, set, show, info, target, resource, etc.)
+  commands.go       User commands (use, set, show, info, target, resource, lab, etc.)
   exploit.go        Check, exploit, cmdstager, C2 wiring, BuildContext bridge
   sessions.go       Session list, interact, kill, backend lifecycle
   display.go        Table rendering with ANSI-aware log.Pad(), styling helpers
@@ -27,6 +28,9 @@ pkg/runner/         Execution engine
   scanner.go        Multi-target scanning with thread pool
   context.go        BuildContext() shared between console and runner
   options.go        Enrichers: enrichBase, enrichC2, enrichCmdStager, enrichScan
+
+pkg/lab/            Docker lab management (Docker Engine SDK, no shell-out)
+  lab.go            Start/Stop/Status/IsRunning, WaitReady, WaitProbe, DockerGateway, Target
 
 pkg/c2/             C2 backends
   c2.go             Backend interface + SessionHandler + factory registry
@@ -64,6 +68,11 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Console commands are a dynamic map (`registerCommands()`). Adding a command = one line.
 - C2 backends self-register via `c2.RegisterFactory()` in `init()`.
 - Constants: `cmdstager.DefaultLineMax` (2047), `cmdstager.DefaultFlavor` (printf).
+- Lab: `sdk.Service` wraps `container.Config` + `container.HostConfig` (Docker SDK types, zero conversion).
+- Lab builder: `sdk.NewLabService(name, image, ports...).Env(k, v).Healthcheck(cmd)`.
+- `pik lab run <module>`: start lab, TCP wait, probe Check() until app ready, auto LHOST (docker gateway), exploit.
+- Lab containers tracked by Docker labels (`pik.lab`, `pik.lab.service`), no filesystem state.
+- Lab network aliases: each service reachable by name (like compose) via `pik_<lab>` network.
 
 ## Go conventions
 
@@ -80,8 +89,12 @@ make test                     # go test ./...
 make vet                      # go vet ./...
 ```
 
-Test exploits against lab containers (`docker ps`):
+Test exploits against lab containers:
 ```bash
+pik lab run langflow_validate_code_rce          # cold start to shell, zero config
+pik lab start langflow_validate_code_rce        # just start the lab
+pik lab status                                  # list running labs
+pik lab stop langflow_validate_code_rce         # tear down
 go run ./cmd/pik run opendcim -t 127.0.0.1:18091 -s LHOST=<ip> -s LPORT=4444
 ```
 

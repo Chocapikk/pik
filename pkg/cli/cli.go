@@ -52,6 +52,7 @@ func Run() {
 		newCmd(),
 		consoleCmd(),
 		updateCmd(),
+		labCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
