@@ -12,7 +12,6 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/Chocapikk/pik/pkg/lab"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
@@ -543,8 +542,17 @@ func (c *Console) cmdLab(args []string) {
 	}
 }
 
+func (c *Console) requireLabMgr() sdk.LabManager {
+	mgr := sdk.GetLabManager()
+	if mgr == nil {
+		output.Error("Lab support not available")
+	}
+	return mgr
+}
+
 func (c *Console) labStart() {
-	if !c.requireMod() {
+	mgr := c.requireLabMgr()
+	if mgr == nil || !c.requireMod() {
 		return
 	}
 	info := c.mod.Info()
@@ -554,7 +562,7 @@ func (c *Console) labStart() {
 	}
 	labName := filepath.Base(sdk.NameOf(c.mod))
 	ctx := context.Background()
-	if err := lab.Start(ctx, labName, info.Lab.Services); err != nil {
+	if err := mgr.Start(ctx, labName, info.Lab.Services); err != nil {
 		output.Error("Lab start failed: %v", err)
 		return
 	}
@@ -562,12 +570,13 @@ func (c *Console) labStart() {
 }
 
 func (c *Console) labStop() {
-	if !c.requireMod() {
+	mgr := c.requireLabMgr()
+	if mgr == nil || !c.requireMod() {
 		return
 	}
 	labName := filepath.Base(sdk.NameOf(c.mod))
 	ctx := context.Background()
-	if err := lab.Stop(ctx, labName); err != nil {
+	if err := mgr.Stop(ctx, labName); err != nil {
 		output.Error("Lab stop failed: %v", err)
 		return
 	}
@@ -575,8 +584,12 @@ func (c *Console) labStop() {
 }
 
 func (c *Console) labStatus() {
+	mgr := c.requireLabMgr()
+	if mgr == nil {
+		return
+	}
 	ctx := context.Background()
-	labs, err := lab.Status(ctx)
+	labs, err := mgr.Status(ctx)
 	if err != nil {
 		output.Error("Lab status failed: %v", err)
 		return
@@ -609,7 +622,8 @@ func (c *Console) labStatus() {
 }
 
 func (c *Console) labRun() {
-	if !c.requireMod() {
+	mgr := c.requireLabMgr()
+	if mgr == nil || !c.requireMod() {
 		return
 	}
 	info := c.mod.Info()
@@ -622,8 +636,8 @@ func (c *Console) labRun() {
 	ctx := context.Background()
 
 	// Start lab if not already running.
-	if !lab.IsRunning(ctx, labName) {
-		if err := lab.Start(ctx, labName, info.Lab.Services); err != nil {
+	if !mgr.IsRunning(ctx, labName) {
+		if err := mgr.Start(ctx, labName, info.Lab.Services); err != nil {
 			output.Error("Lab start failed: %v", err)
 			return
 		}
@@ -632,11 +646,11 @@ func (c *Console) labRun() {
 	}
 
 	// Derive target from port bindings.
-	target := lab.Target(info.Lab.Services)
+	target := mgr.Target(info.Lab.Services)
 
 	// Phase 1: wait for TCP port to open.
 	output.Status("Waiting for %s", target)
-	if err := lab.WaitReady(ctx, target, 120*time.Second); err != nil {
+	if err := mgr.WaitReady(ctx, target, 120*time.Second); err != nil {
 		output.Error("Lab not ready: %v", err)
 		return
 	}
@@ -649,7 +663,7 @@ func (c *Console) labRun() {
 	if checker, ok := c.mod.(sdk.Checker); ok {
 		output.Status("Probing application readiness")
 		params := c.buildParams()
-		if err := lab.WaitProbe(ctx, 120*time.Second, func() error {
+		if err := mgr.WaitProbe(ctx, 120*time.Second, func() error {
 			_, err := checker.Check(c.buildModuleRun(params, ""))
 			return err
 		}); err != nil {
@@ -661,7 +675,7 @@ func (c *Console) labRun() {
 
 	// Auto-detect LHOST from Docker gateway if not set.
 	if c.getOpt("LHOST") == "" {
-		gw := lab.DockerGateway()
+		gw := mgr.DockerGateway()
 		if gw == "" {
 			output.Error("Set LHOST before running (container needs to reach your host)")
 			return
