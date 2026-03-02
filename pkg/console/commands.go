@@ -145,7 +145,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	)
 	globalIdx := 0
 	for _, dir := range groupOrder {
-		output.Print("  %s\n", log.Muted(dir+"/"))
+		output.Print("  %s  %s\n", log.Pad("", 3), log.Muted(dir+"/"))
 		for _, e := range groups[dir] {
 			info := e.mod.Info()
 			desc := info.Title()
