@@ -10,7 +10,6 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2/shell"
 	"github.com/Chocapikk/pik/pkg/cmdstager"
 	"github.com/Chocapikk/pik/sdk"
-	pikhttp "github.com/Chocapikk/pik/pkg/http"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/pkg/text"
@@ -68,7 +67,7 @@ func check(mod sdk.Exploit, params sdk.Params, target string, required bool) err
 	}
 
 	output.Status("Checking %s", target)
-	result, err := checker.Check(buildContext(params, ""))
+	result, err := checker.Check(BuildContext(params, ""))
 	if err != nil {
 		return fmt.Errorf("check failed: %w", err)
 	}
@@ -102,7 +101,7 @@ func deliverPayload(target string, mod sdk.Exploit, modTarget sdk.Target, backen
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
-	run := buildContext(params, payloadCmd)
+	run := BuildContext(params, payloadCmd)
 	run.SetTarget(modTarget)
 
 	output.Status("Exploiting %s", target)
@@ -141,7 +140,7 @@ func deliverCmdStager(target string, mod sdk.Exploit, modTarget sdk.Target, back
 		"Drop path", opts.tempPath,
 	)
 
-	run := buildContext(params, "")
+	run := BuildContext(params, "")
 	run.SetCommands(commands)
 	run.SetTarget(modTarget)
 
@@ -175,7 +174,7 @@ func deliverTCPStager(target string, mod sdk.Exploit, modTarget sdk.Target, back
 		"Drop path", opts.tempPath,
 	)
 
-	run := buildContext(params, "")
+	run := BuildContext(params, "")
 	run.SetCommands(commands)
 	run.SetTarget(modTarget)
 
@@ -201,7 +200,7 @@ func generateCmdStager(data []byte, params sdk.Params) ([]string, stagerOpts) {
 
 	commands, err := cmdstager.Generate(data, flavor, cmdstager.Options{
 		TempPath: tempPath,
-		LineMax:  params.IntOr("CMDSTAGER_LINEMAX", 2047),
+		LineMax:  params.IntOr("CMDSTAGER_LINEMAX", cmdstager.DefaultLineMax),
 	})
 	if err != nil {
 		output.Error("cmdstager failed: %v", err)
@@ -266,42 +265,6 @@ func resolvePayload(backend c2.Backend, params sdk.Params, platform string) (str
 	}
 }
 
-// --- Context wiring ---
-
-func buildContext(params sdk.Params, payloadCmd string) *sdk.Context {
-	ctx := sdk.NewContext(params.Map(), payloadCmd)
-	ctx.StatusFn = output.Status
-	ctx.SuccessFn = output.Success
-	ctx.ErrorFn = output.Error
-	ctx.WarningFn = output.Warning
-	ctx.Base64BashFn = payload.Base64Bash
-	ctx.CommentFn = payload.CommentTrail
-	ctx.RandTextFn = text.RandText
-	ctx.SendFn = httpBridge(params)
-	return ctx
-}
-
-func httpBridge(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
-	run := pikhttp.FromModule(params)
-	return func(req sdk.Request) (*sdk.Response, error) {
-		resp, err := run.Send(pikhttp.Request{
-			Method:      req.Method,
-			Path:        req.Path,
-			Query:       url.Values(req.Query),
-			Form:        url.Values(req.Form),
-			ContentType: req.ContentType,
-			Headers:     req.Headers,
-			Timeout:     time.Duration(req.Timeout) * time.Second,
-			NoRedirect:  req.NoRedirect,
-		})
-		if err != nil {
-			return nil, err
-		}
-		r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body}
-		r.SetContainsFn(resp.ContainsAny)
-		return r, nil
-	}
-}
 
 // --- C2 resolution ---
 

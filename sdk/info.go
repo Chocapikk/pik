@@ -213,24 +213,6 @@ func (info Info) Platform() string {
 	return "linux"
 }
 
-func (info Info) DefaultArch() string {
-	for _, t := range info.Targets {
-		if t.Platform == info.Platform() && len(t.Arches) > 0 {
-			return t.Arches[0]
-		}
-	}
-	return "amd64"
-}
-
-func (info Info) SupportsArch(arch string) bool {
-	for _, t := range info.Targets {
-		if t.Platform == info.Platform() {
-			return t.SupportsArch(arch)
-		}
-	}
-	return true
-}
-
 func (info Info) TargetStrings() []string {
 	result := make([]string, len(info.Targets))
 	for i, t := range info.Targets {
