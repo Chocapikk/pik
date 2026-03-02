@@ -12,6 +12,7 @@ import (
 func checkCmd() *cobra.Command {
 	var target, file, outputFile string
 	var threads int
+	var jsonOutput bool
 	var sets []string
 
 	cmd := &cobra.Command{
@@ -28,7 +29,7 @@ func checkCmd() *cobra.Command {
 			}
 
 			if file != "" {
-				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile}
+				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile, JSONOutput: jsonOutput}
 				scan.Run(ctx)
 				return nil
 			}
@@ -44,5 +45,6 @@ func checkCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file")
 	cmd.Flags().IntVar(&threads, "threads", 10, "Threads")
 	cmd.Flags().StringArrayVarP(&sets, "set", "s", nil, "Set option (KEY=VALUE)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "JSON output (with -o)")
 	return cmd
 }
