@@ -21,7 +21,7 @@ func init() {
 func RunStandaloneWith(mod sdk.Exploit, runOpts sdk.RunOptions) {
 	name := sdk.NameOf(mod)
 	if name == "unknown" {
-		name = mod.Info().Description
+		name = mod.Info().Title()
 	}
 
 	var target, file, outputFile string
@@ -31,7 +31,7 @@ func RunStandaloneWith(mod sdk.Exploit, runOpts sdk.RunOptions) {
 
 	cmd := &cobra.Command{
 		Use:           name,
-		Short:         mod.Info().Description,
+		Short:         mod.Info().Title(),
 		Long:          buildTargetHelp(mod),
 		SilenceUsage:  true,
 		SilenceErrors: true,

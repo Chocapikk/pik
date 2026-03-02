@@ -56,7 +56,16 @@ func httpBridge(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body}
+
+		// Copy response headers to sdk.Response.
+		headers := make(map[string]string)
+		for k, vals := range resp.Header {
+			if len(vals) > 0 {
+				headers[k] = vals[0]
+			}
+		}
+
+		r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body, Headers: headers}
 		r.SetContainsFn(resp.ContainsAny)
 		return r, nil
 	}

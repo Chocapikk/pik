@@ -20,7 +20,7 @@ func infoCmd() *cobra.Command {
 			info := mod.Info()
 
 			output.Print("Name:         %s\n", sdk.NameOf(mod))
-			output.Print("Description:  %s\n", info.Description)
+			output.Print("Description:  %s\n", info.Title())
 			if info.Detail != "" {
 				output.Print("\n%s\n\n", info.Detail)
 			}
