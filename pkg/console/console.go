@@ -1,9 +1,11 @@
 package console
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -63,56 +65,65 @@ func Run() error {
 			output.Println()
 			return nil
 		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		parts := strings.Fields(line)
-		command := strings.ToLower(parts[0])
-		args := parts[1:]
-
-		switch command {
-		case "exit", "quit":
+		if cons.exec(line) {
 			return nil
-		case "help", "?":
-			cons.cmdHelp()
-		case "list", "modules":
-			cons.cmdList()
-		case "use":
-			cons.cmdUse(args)
-		case "back":
-			cons.cmdBack()
-		case "info":
-			cons.cmdInfo(args)
-		case "show":
-			cons.cmdShow(args)
-		case "set":
-			cons.cmdSet(args)
-		case "unset":
-			cons.cmdUnset(args)
-		case "check":
-			cons.cmdCheck()
-		case "exploit", "run":
-			cons.cmdExploit()
-		case "sessions":
-			cons.cmdSessions(args)
-		case "kill":
-			cons.cmdKill(args)
-		case "rank":
-			cons.cmdRank()
-		default:
-			output.Error("Unknown command: %s (type 'help' for commands)", command)
 		}
 	}
+}
+
+// exec runs a single console line. Returns true if the console should exit.
+func (c *Console) exec(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return false
+	}
+
+	parts := strings.Fields(line)
+	command := strings.ToLower(parts[0])
+	args := parts[1:]
+
+	switch command {
+	case "exit", "quit":
+		return true
+	case "help", "?":
+		c.cmdHelp()
+	case "list", "modules":
+		c.cmdList()
+	case "use":
+		c.cmdUse(args)
+	case "back":
+		c.cmdBack()
+	case "info":
+		c.cmdInfo(args)
+	case "show":
+		c.cmdShow(args)
+	case "set":
+		c.cmdSet(args)
+	case "unset":
+		c.cmdUnset(args)
+	case "check":
+		c.cmdCheck()
+	case "exploit", "run":
+		c.cmdExploit()
+	case "sessions":
+		c.cmdSessions(args)
+	case "kill":
+		c.cmdKill(args)
+	case "rank":
+		c.cmdRank()
+	case "resource":
+		c.cmdResource(args)
+	default:
+		output.Error("Unknown command: %s (type 'help' for commands)", command)
+	}
+	return false
 }
 
 func (c *Console) initReadline() error {
 	commands := []string{
 		"use", "set", "unset", "show", "back", "info",
 		"check", "exploit", "run", "list", "modules",
-		"sessions", "kill",
+		"sessions", "kill", "resource",
 		"help", "exit", "quit",
 	}
 
@@ -256,6 +267,7 @@ func (c *Console) cmdHelp() {
 		{"sessions", "List active sessions"},
 		{"sessions <id>", "Interact with a session"},
 		{"kill <id>", "Kill a session"},
+		{"resource <file>", "Run commands from a .rc file"},
 		{"list", "List all modules"},
 		{"rank", "Contributor leaderboard"},
 		{"exit / quit", "Exit the console"},
@@ -796,6 +808,28 @@ func (c *Console) cmdKill(args []string) {
 	}
 	if err := handler.Kill(id); err != nil {
 		output.Error("%v", err)
+	}
+}
+
+func (c *Console) cmdResource(args []string) {
+	if len(args) == 0 {
+		output.Error("Usage: resource <file.rc>")
+		return
+	}
+	f, err := os.Open(args[0])
+	if err != nil {
+		output.Error("Cannot open %s: %v", args[0], err)
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		output.Print("  %s\n", log.Gray(line))
+		if c.exec(line) {
+			return
+		}
 	}
 }
 
