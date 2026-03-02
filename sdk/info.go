@@ -1,12 +1,6 @@
 package sdk
 
-import (
-	"strings"
-	"time"
-
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
-)
+import "strings"
 
 // --- Reliability ---
 
@@ -190,58 +184,48 @@ type Lab struct {
 	Services []Service
 }
 
-// Service wraps Docker SDK types directly so pkg/lab passes them
-// straight to the Docker API with zero conversion.
+// Service describes a container in a lab environment.
+// pkg/lab converts these to Docker SDK types at runtime.
 type Service struct {
-	Name       string // container name suffix (e.g. "web", "db")
-	Config     container.Config
-	HostConfig container.HostConfig
+	Name        string            // container name suffix (e.g. "web", "db")
+	Image       string            // Docker image (e.g. "vulhub/langflow:1.2.0")
+	Ports       []string          // port bindings (e.g. "7860:7860")
+	Env         map[string]string // environment variables
+	Cmd         []string          // override entrypoint command
+	Volumes     []string          // bind mounts (host:container)
+	Healthcheck []string          // CMD-SHELL health check command
 }
 
 // NewLabService builds a Service for the common case: image + port bindings.
-// Chain Env(), Cmd(), and Volume() for additional configuration.
-func NewLabService(name, img string, ports ...string) Service {
-	exposed, bindings, _ := nat.ParsePortSpecs(ports)
-	return Service{
-		Name: name,
-		Config: container.Config{
-			Image:        img,
-			ExposedPorts: exposed,
-		},
-		HostConfig: container.HostConfig{
-			PortBindings:  bindings,
-			RestartPolicy: container.RestartPolicy{Name: "unless-stopped"},
-		},
+// Chain WithEnv(), WithCmd(), WithVolume(), and WithHealthcheck() for more.
+func NewLabService(name, image string, ports ...string) Service {
+	return Service{Name: name, Image: image, Ports: ports}
+}
+
+// WithEnv adds an environment variable.
+func (s Service) WithEnv(key, value string) Service {
+	if s.Env == nil {
+		s.Env = make(map[string]string)
 	}
-}
-
-// Env adds an environment variable to the service.
-func (s Service) Env(key, value string) Service {
-	s.Config.Env = append(s.Config.Env, key+"="+value)
+	s.Env[key] = value
 	return s
 }
 
-// Cmd overrides the container command.
-func (s Service) Cmd(args ...string) Service {
-	s.Config.Cmd = args
+// WithCmd overrides the container command.
+func (s Service) WithCmd(args ...string) Service {
+	s.Cmd = args
 	return s
 }
 
-// Volume adds a bind mount (host:container or named volume).
-func (s Service) Volume(bind string) Service {
-	s.HostConfig.Binds = append(s.HostConfig.Binds, bind)
+// WithVolume adds a bind mount (host:container).
+func (s Service) WithVolume(bind string) Service {
+	s.Volumes = append(s.Volumes, bind)
 	return s
 }
 
-// Healthcheck sets a health check command with 5s interval and 30s start period.
-func (s Service) Healthcheck(cmd ...string) Service {
-	interval := 5 * time.Second
-	startPeriod := 30 * time.Second
-	s.Config.Healthcheck = &container.HealthConfig{
-		Test:        append([]string{"CMD-SHELL"}, cmd...),
-		Interval:    interval,
-		StartPeriod: startPeriod,
-	}
+// WithHealthcheck sets a CMD-SHELL health check.
+func (s Service) WithHealthcheck(cmd string) Service {
+	s.Healthcheck = []string{cmd}
 	return s
 }
 
