@@ -1,5 +1,5 @@
 bin/
-pik
+/pik
 *.exe
 *.test
 .DS_Store
