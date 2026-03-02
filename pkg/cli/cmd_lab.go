@@ -8,12 +8,19 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/lab"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/runner"
 	"github.com/Chocapikk/pik/sdk"
 )
+
+func requireLab() sdk.LabManager {
+	mgr := sdk.GetLabManager()
+	if mgr == nil {
+		output.Error("lab support not available (import _ \"github.com/Chocapikk/pik/pkg/lab\")")
+	}
+	return mgr
+}
 
 func labCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -30,6 +37,10 @@ func labStartCmd() *cobra.Command {
 		Short: "Start a module's lab environment",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			mgr := requireLab()
+			if mgr == nil {
+				return fmt.Errorf("lab not available")
+			}
 			mod := resolveModule(args[0])
 			info := mod.Info()
 			if len(info.Lab.Services) == 0 {
@@ -37,7 +48,7 @@ func labStartCmd() *cobra.Command {
 			}
 			labName := filepath.Base(sdk.NameOf(mod))
 			ctx := context.Background()
-			return lab.Start(ctx, labName, info.Lab.Services)
+			return mgr.Start(ctx, labName, info.Lab.Services)
 		},
 	}
 }
@@ -48,10 +59,14 @@ func labStopCmd() *cobra.Command {
 		Short: "Stop a module's lab environment",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			mgr := requireLab()
+			if mgr == nil {
+				return fmt.Errorf("lab not available")
+			}
 			mod := resolveModule(args[0])
 			labName := filepath.Base(sdk.NameOf(mod))
 			ctx := context.Background()
-			if err := lab.Stop(ctx, labName); err != nil {
+			if err := mgr.Stop(ctx, labName); err != nil {
 				return err
 			}
 			output.Success("Lab %s stopped", labName)
@@ -68,6 +83,10 @@ func labRunCmd() *cobra.Command {
 		Short: "Start lab, wait for ready, and exploit",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			mgr := requireLab()
+			if mgr == nil {
+				return fmt.Errorf("lab not available")
+			}
 			mod := resolveModule(args[0])
 			info := mod.Info()
 			if len(info.Lab.Services) == 0 {
@@ -78,8 +97,8 @@ func labRunCmd() *cobra.Command {
 			labName := filepath.Base(sdk.NameOf(mod))
 
 			// Start lab if not already running.
-			if !lab.IsRunning(ctx, labName) {
-				if err := lab.Start(ctx, labName, info.Lab.Services); err != nil {
+			if !mgr.IsRunning(ctx, labName) {
+				if err := mgr.Start(ctx, labName, info.Lab.Services); err != nil {
 					return err
 				}
 			} else {
@@ -87,11 +106,11 @@ func labRunCmd() *cobra.Command {
 			}
 
 			// Derive target from port bindings.
-			target := lab.Target(info.Lab.Services)
+			target := mgr.Target(info.Lab.Services)
 
 			// Phase 1: wait for TCP port to open.
 			output.Status("Waiting for %s", target)
-			if err := lab.WaitReady(ctx, target, 120*time.Second); err != nil {
+			if err := mgr.WaitReady(ctx, target, 120*time.Second); err != nil {
 				return fmt.Errorf("lab not ready: %w", err)
 			}
 
@@ -104,7 +123,7 @@ func labRunCmd() *cobra.Command {
 					return err
 				}
 				output.Status("Probing application readiness")
-				if err := lab.WaitProbe(ctx, 120*time.Second, func() error {
+				if err := mgr.WaitProbe(ctx, 120*time.Second, func() error {
 					_, err := checker.Check(runner.BuildContext(params, ""))
 					return err
 				}); err != nil {
@@ -121,7 +140,7 @@ func labRunCmd() *cobra.Command {
 			}
 			// Auto-detect LHOST from Docker gateway if not set.
 			if params.Lhost() == "" {
-				gw := lab.DockerGateway()
+				gw := mgr.DockerGateway()
 				if gw == "" {
 					return fmt.Errorf("specify -s LHOST=<ip>")
 				}
@@ -141,8 +160,12 @@ func labStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "List running lab environments",
 		RunE: func(*cobra.Command, []string) error {
+			mgr := requireLab()
+			if mgr == nil {
+				return fmt.Errorf("lab not available")
+			}
 			ctx := context.Background()
-			labs, err := lab.Status(ctx)
+			labs, err := mgr.Status(ctx)
 			if err != nil {
 				return err
 			}

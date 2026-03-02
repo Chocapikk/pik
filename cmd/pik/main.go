@@ -7,6 +7,7 @@ import (
 	_ "github.com/Chocapikk/pik/modules"
 	"github.com/Chocapikk/pik/pkg/cli"
 	"github.com/Chocapikk/pik/pkg/console"
+	_ "github.com/Chocapikk/pik/pkg/lab" // register lab manager
 	"github.com/Chocapikk/pik/sdk"
 )
 

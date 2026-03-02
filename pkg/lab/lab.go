@@ -25,6 +25,50 @@ const (
 	labelService = "pik.lab.service"
 )
 
+// manager implements sdk.LabManager.
+type manager struct{}
+
+func init() {
+	sdk.SetLabManager(&manager{})
+}
+
+func (m *manager) Start(ctx context.Context, name string, services []sdk.Service) error {
+	return Start(ctx, name, services)
+}
+func (m *manager) Stop(ctx context.Context, name string) error {
+	return Stop(ctx, name)
+}
+func (m *manager) Status(ctx context.Context) ([]sdk.LabStatus, error) {
+	labs, err := Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]sdk.LabStatus, len(labs))
+	for i, l := range labs {
+		svcs := make([]sdk.LabServiceStatus, len(l.Services))
+		for j, s := range l.Services {
+			svcs[j] = sdk.LabServiceStatus{Name: s.Name, Image: s.Image, State: s.State, Ports: s.Ports}
+		}
+		result[i] = sdk.LabStatus{Name: l.Name, Services: svcs}
+	}
+	return result, nil
+}
+func (m *manager) IsRunning(ctx context.Context, name string) bool {
+	return IsRunning(ctx, name)
+}
+func (m *manager) Target(services []sdk.Service) string {
+	return Target(services)
+}
+func (m *manager) WaitReady(ctx context.Context, addr string, timeout time.Duration) error {
+	return WaitReady(ctx, addr, timeout)
+}
+func (m *manager) WaitProbe(ctx context.Context, timeout time.Duration, fn func() error) error {
+	return WaitProbe(ctx, timeout, fn)
+}
+func (m *manager) DockerGateway() string {
+	return DockerGateway()
+}
+
 // --- Docker client ---
 
 func withClient(fn func(cli *client.Client) error) error {
