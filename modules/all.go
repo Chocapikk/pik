@@ -7,6 +7,7 @@ package modules
 import (
 	// Exploit modules — HTTP
 	_ "github.com/Chocapikk/pik/modules/exploit/http/linux"
+	_ "github.com/Chocapikk/pik/modules/exploit/http/multi"
 
 	// C2 backends
 	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"

@@ -98,6 +98,15 @@ func GetPayload(name string) *Info {
 	return nil
 }
 
+// Names returns all registered payload names.
+func Names() []string {
+	result := make([]string, len(payloads))
+	for i, pl := range payloads {
+		result[i] = pl.Name
+	}
+	return result
+}
+
 // DefaultPayload returns the default payload for a platform.
 func DefaultPayload(platform string) *Info {
 	switch platform {

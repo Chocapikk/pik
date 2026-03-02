@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -14,6 +15,12 @@ func Sprintf(format string, args ...any) string {
 // Errorf is fmt.Errorf, re-exported so modules don't need to import fmt.
 func Errorf(format string, args ...any) error {
 	return fmt.Errorf(format, args...)
+}
+
+// JSONBody serializes a value to a JSON string for use in Request.Body.
+func JSONBody(v any) string {
+	data, _ := json.Marshal(v)
+	return string(data)
 }
 
 // Dedent strips the common leading whitespace from all non-empty lines.

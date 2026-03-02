@@ -98,10 +98,10 @@ type Listener struct {
 }
 
 var payloads = c2.PayloadMap{
-	"reverse_curl_http":   payload.CurlHTTP,
-	"reverse_wget_http":   payload.WgetHTTP,
-	"reverse_php_http":    payload.PHPHTTP,
-	"reverse_python_http": payload.PythonHTTP,
+	"cmd/curl/reverse_http":   payload.CurlHTTP,
+	"cmd/wget/reverse_http":   payload.WgetHTTP,
+	"cmd/php/reverse_http":    payload.PHPHTTP,
+	"cmd/python/reverse_http": payload.PythonHTTP,
 }
 
 func New() *Listener {

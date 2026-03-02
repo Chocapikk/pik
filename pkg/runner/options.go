@@ -1,8 +1,9 @@
 package runner
 
 import (
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/cmdstager"
+	"github.com/Chocapikk/pik/pkg/payload"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 func init() {
@@ -19,7 +20,7 @@ func enrichBase(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	return append(opts,
 		sdk.Option{Name: "LHOST", Type: sdk.TypeAddress, Required: true, Desc: "Callback host for payload"},
 		sdk.OptPort("LPORT", 4444, "Callback port for payload"),
-		sdk.OptEnum("PAYLOAD", "reverse_bash", "Payload type", "reverse_bash", "reverse_python", "reverse_perl", "reverse_powershell"),
+		sdk.OptEnum("PAYLOAD", "cmd/bash/reverse_tcp", "Payload type", payload.Names()...),
 		sdk.OptAdvanced(sdk.OptString("PROXIES", "", "Proxy URL (http://host:port or socks5://host:port)")),
 	)
 }
