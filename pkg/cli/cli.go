@@ -51,6 +51,7 @@ func Run() {
 		buildCmd(),
 		newCmd(),
 		consoleCmd(),
+		updateCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
