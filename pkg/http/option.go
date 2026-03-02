@@ -20,10 +20,10 @@ func enrichHTTP(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	}
 
 	return append(opts,
-		sdk.OptBool("SSL", false, "Use SSL/TLS"),
-		sdk.OptString("USER_AGENT", "random", "HTTP User-Agent"),
-		sdk.OptInt("HTTP_TIMEOUT", 10, "HTTP request timeout in seconds"),
-		sdk.OptBool("FOLLOW_REDIRECTS", true, "Follow HTTP redirects"),
-		sdk.OptBool("KEEP_COOKIES", true, "Persist cookies across requests"),
+		sdk.OptAdvanced(sdk.OptBool("SSL", false, "Use SSL/TLS")),
+		sdk.OptAdvanced(sdk.OptString("USER_AGENT", "random", "HTTP User-Agent")),
+		sdk.OptAdvanced(sdk.OptInt("HTTP_TIMEOUT", 10, "HTTP request timeout in seconds")),
+		sdk.OptAdvanced(sdk.OptBool("FOLLOW_REDIRECTS", true, "Follow HTTP redirects")),
+		sdk.OptAdvanced(sdk.OptBool("KEEP_COOKIES", true, "Persist cookies across requests")),
 	)
 }

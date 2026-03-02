@@ -98,6 +98,12 @@ func OptEnum(name, def, desc string, values ...string) Option {
 	return Option{Name: name, Type: TypeEnum, Default: def, Desc: desc, Enums: values}
 }
 
+// OptAdvanced marks any option as advanced.
+func OptAdvanced(opt Option) Option {
+	opt.Advanced = true
+	return opt
+}
+
 func OptAddress(name, def, desc string) Option {
 	return Option{Name: name, Type: TypeAddress, Default: def, Desc: desc}
 }
