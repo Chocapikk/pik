@@ -6,6 +6,7 @@ var runFn func(Exploit, RunOptions)
 // RunOptions configures standalone binary behavior.
 type RunOptions struct {
 	Console bool // Add interactive console subcommand.
+	Lab     bool // Add lab management subcommands.
 }
 
 // RunOption is a functional option for Run.
@@ -14,6 +15,12 @@ type RunOption func(*RunOptions)
 // WithConsole enables the interactive console subcommand in standalone binaries.
 func WithConsole() RunOption {
 	return func(o *RunOptions) { o.Console = true }
+}
+
+// WithLab enables lab management subcommands in standalone binaries.
+// Requires importing _ "github.com/Chocapikk/pik/pkg/lab" to register the backend.
+func WithLab() RunOption {
+	return func(o *RunOptions) { o.Lab = true }
 }
 
 // SetRunner registers the standalone runner function.
