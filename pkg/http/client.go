@@ -316,11 +316,14 @@ func (s *Session) applyHeaders(httpReq *nethttp.Request, req Request, ct string)
 		httpReq.Header.Set("Content-Type", ct)
 	}
 	httpReq.Header.Set("User-Agent", text.RandUserAgent())
+	// Direct map assignment instead of Header.Set() to preserve original
+	// casing. Some servers (e.g. Spring Cloud Function) are case-sensitive
+	// on header names and Header.Set() canonicalizes them.
 	for k, v := range s.headers {
-		httpReq.Header.Set(k, v)
+		httpReq.Header[k] = []string{v}
 	}
 	for k, v := range req.Headers {
-		httpReq.Header.Set(k, v)
+		httpReq.Header[k] = []string{v}
 	}
 	if req.BasicAuth[0] != "" {
 		httpReq.SetBasicAuth(req.BasicAuth[0], req.BasicAuth[1])
