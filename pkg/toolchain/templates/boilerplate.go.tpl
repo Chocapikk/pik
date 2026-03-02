@@ -1,6 +1,9 @@
 package main
 
-import "github.com/Chocapikk/pik/sdk"
+import (
+	"github.com/Chocapikk/pik/sdk"
+	_ "github.com/Chocapikk/pik/pkg/cli"
+)
 
 type {{.StructName}} struct{ sdk.Pik }
 

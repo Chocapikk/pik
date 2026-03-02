@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/text"
 )
@@ -88,7 +88,7 @@ func NewRun(ctx context.Context, target string, opts ...Option) *Run {
 }
 
 // FromModule creates a Run from module params.
-func FromModule(params core.Params, opts ...Option) *Run {
+func FromModule(params sdk.Params, opts ...Option) *Run {
 	ctx := params.Ctx
 	if t := poolTransport(ctx); t != nil {
 		opts = append([]Option{WithTransport(t)}, opts...)

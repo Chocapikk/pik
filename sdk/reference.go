@@ -1,4 +1,4 @@
-package core
+package sdk
 
 // RefType identifies the kind of reference.
 type RefType string

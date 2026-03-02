@@ -8,14 +8,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/runner"
 )
 
+func init() {
+	sdk.SetRunner(RunStandaloneWith)
+}
+
 // RunStandaloneWith starts a single-module CLI for a directly-provided exploit.
-func RunStandaloneWith(mod core.Exploit) {
-	name := core.NameOf(mod)
+func RunStandaloneWith(mod sdk.Exploit) {
+	name := sdk.NameOf(mod)
 	if name == "unknown" {
 		name = mod.Info().Description
 	}

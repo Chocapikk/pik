@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
@@ -61,7 +61,7 @@ func Run() {
 
 // RunStandalone starts a single-module CLI by name.
 func RunStandalone(name string) {
-	mod := core.Get(name)
+	mod := sdk.Get(name)
 	if mod == nil {
 		output.Error("module %q not found", name)
 		os.Exit(1)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
@@ -14,7 +14,7 @@ func listCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all available modules",
 		Run: func(*cobra.Command, []string) {
-			modules := core.List()
+			modules := sdk.List()
 			if len(modules) == 0 {
 				output.Warning("No modules loaded")
 				return
@@ -25,7 +25,7 @@ func listCmd() *cobra.Command {
 				if cves == "" {
 					cves = "-"
 				}
-				output.Print("  %-20s %-12s %-40s [%s]\n", core.NameOf(mod), info.Reliability, info.Description, cves)
+				output.Print("  %-20s %-12s %-40s [%s]\n", sdk.NameOf(mod), info.Reliability, info.Description, cves)
 			}
 		},
 	}
@@ -36,7 +36,7 @@ func rankCmd() *cobra.Command {
 		Use:   "rank",
 		Short: "Show contributor leaderboard",
 		Run: func(*cobra.Command, []string) {
-			rankings := core.Rankings()
+			rankings := sdk.Rankings()
 			if len(rankings) == 0 {
 				output.Warning("No modules loaded")
 				return

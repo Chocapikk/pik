@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
 // resolveModule looks up a module by name and exits on failure.
-func resolveModule(name string) core.Exploit {
-	mod := core.Get(name)
+func resolveModule(name string) sdk.Exploit {
+	mod := sdk.Get(name)
 	if mod == nil {
 		output.Error("module %q not found", name)
 		os.Exit(1)
@@ -23,7 +23,7 @@ func resolveModule(name string) core.Exploit {
 }
 
 // parseOpts parses -s KEY=VALUE flags into Params.
-func parseOpts(sets []string, params core.Params) error {
+func parseOpts(sets []string, params sdk.Params) error {
 	for _, pair := range sets {
 		key, val, ok := strings.Cut(pair, "=")
 		if !ok {
@@ -35,12 +35,12 @@ func parseOpts(sets []string, params core.Params) error {
 }
 
 // newParams creates Params from a values map.
-func newParams(values map[string]string) core.Params {
-	return core.NewParams(context.Background(), values)
+func newParams(values map[string]string) sdk.Params {
+	return sdk.NewParams(context.Background(), values)
 }
 
 // defaultParams creates Params pre-filled with module option defaults.
-func defaultParams(mod core.Exploit) core.Params {
+func defaultParams(mod sdk.Exploit) sdk.Params {
 	values := make(map[string]string)
 	for _, opt := range mod.Options() {
 		if opt.Default != "" {
@@ -51,7 +51,7 @@ func defaultParams(mod core.Exploit) core.Params {
 }
 
 // flagParams creates Params from flag pointers and a target.
-func flagParams(flagVals map[string]*string, target string) core.Params {
+func flagParams(flagVals map[string]*string, target string) sdk.Params {
 	values := make(map[string]string)
 	values["TARGET"] = target
 	for name, val := range flagVals {

@@ -1,4 +1,4 @@
-package core
+package sdk
 
 import (
 	"encoding/base64"

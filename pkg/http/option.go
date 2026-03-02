@@ -3,27 +3,27 @@ package http
 import (
 	"strings"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 func init() {
-	core.RegisterEnricher(enrichHTTP)
+	sdk.RegisterEnricher(enrichHTTP)
 }
 
-func enrichHTTP(mod core.Exploit, opts []core.Option) []core.Option {
-	if !strings.Contains(core.NameOf(mod), "/http/") {
+func enrichHTTP(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
+	if !strings.Contains(sdk.NameOf(mod), "/http/") {
 		return opts
 	}
 
-	if !core.HasOption(mod, "TARGETURI") {
-		opts = append(opts, core.OptTargetURI("/"))
+	if !sdk.HasOption(mod, "TARGETURI") {
+		opts = append(opts, sdk.OptTargetURI("/"))
 	}
 
 	return append(opts,
-		core.OptBool("SSL", false, "Use SSL/TLS"),
-		core.OptString("USER_AGENT", "random", "HTTP User-Agent"),
-		core.OptInt("HTTP_TIMEOUT", 10, "HTTP request timeout in seconds"),
-		core.OptBool("FOLLOW_REDIRECTS", true, "Follow HTTP redirects"),
-		core.OptBool("KEEP_COOKIES", true, "Persist cookies across requests"),
+		sdk.OptBool("SSL", false, "Use SSL/TLS"),
+		sdk.OptString("USER_AGENT", "random", "HTTP User-Agent"),
+		sdk.OptInt("HTTP_TIMEOUT", 10, "HTTP request timeout in seconds"),
+		sdk.OptBool("FOLLOW_REDIRECTS", true, "Follow HTTP redirects"),
+		sdk.OptBool("KEEP_COOKIES", true, "Persist cookies across requests"),
 	)
 }

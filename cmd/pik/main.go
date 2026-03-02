@@ -7,7 +7,7 @@ import (
 	_ "github.com/Chocapikk/pik/modules"
 	"github.com/Chocapikk/pik/pkg/cli"
 	"github.com/Chocapikk/pik/pkg/console"
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 func init() {
@@ -17,7 +17,7 @@ func init() {
 func main() {
 	name := filepath.Base(os.Args[0])
 	if name != "pik" {
-		if core.Get(name) != nil {
+		if sdk.Get(name) != nil {
 			cli.RunStandalone(name)
 			return
 		}
