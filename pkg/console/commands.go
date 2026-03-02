@@ -80,19 +80,29 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 
 	// Group modules by directory prefix.
 	type entry struct {
+		idx       int
 		shortName string
 		mod       sdk.Exploit
 	}
 	groups := make(map[string][]entry)
 	var groupOrder []string
 
+	allMods := sdk.List()
 	for _, mod := range modules {
 		full := sdk.NameOf(mod)
 		dir, short := splitModulePath(full)
 		if _, seen := groups[dir]; !seen {
 			groupOrder = append(groupOrder, dir)
 		}
-		groups[dir] = append(groups[dir], entry{short, mod})
+		// Find global index in sdk.List() for use <id>.
+		idx := -1
+		for i, m := range allMods {
+			if m == mod {
+				idx = i
+				break
+			}
+		}
+		groups[dir] = append(groups[dir], entry{idx, short, mod})
 	}
 
 	// Compute short name column width.
@@ -126,7 +136,8 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	}
 
 	output.Println()
-	output.Print("    %s  %s  %s  %s\n",
+	output.Print("  %s  %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("#"), 3),
 		log.Pad(log.UnderlineText("Name"), nameW),
 		log.Pad(log.UnderlineText("Reliability"), relW),
 		log.Pad(log.UnderlineText("Description"), descW),
@@ -147,7 +158,8 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			} else if len(cves) > 1 {
 				cveStr = fmt.Sprintf("%d CVEs", len(cves))
 			}
-			output.Print("    %s  %s  %s  %s\n",
+			output.Print("  %s  %s  %s  %s  %s\n",
+				log.Pad(log.Muted(fmt.Sprintf("%d", e.idx)), 3),
 				log.Pad(log.Cyan(e.shortName), nameW),
 				log.Pad(reliabilityStyle(info.Reliability), relW),
 				log.Pad(desc, descW),
@@ -166,8 +178,9 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				if len(t.Arches) > 0 {
 					arches = " (" + strings.Join(t.Arches, ", ") + ")"
 				}
-				output.Print("      %s %s  %s\n",
+				output.Print("      %s %s %s  %s\n",
 					log.Muted(branch),
+					log.Muted(fmt.Sprintf("%d", i)),
 					log.Gray(t.Type),
 					log.Gray(tName+arches),
 				)
@@ -242,6 +255,14 @@ func (c *Console) cmdUse(args []string) {
 			return
 		}
 		name = selected
+	}
+
+	// Support numeric index from the module list.
+	if idx, err := strconv.Atoi(name); err == nil {
+		modules := sdk.List()
+		if idx >= 0 && idx < len(modules) {
+			name = sdk.NameOf(modules[idx])
+		}
 	}
 
 	mod := sdk.Get(name)
