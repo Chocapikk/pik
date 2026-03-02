@@ -4,9 +4,7 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/output"
@@ -66,8 +64,8 @@ func (s *Session) Interact() {
 
 	done := make(chan struct{})
 	bg := make(chan os.Signal, 1)
-	signal.Notify(bg, syscall.SIGTSTP)
-	defer signal.Stop(bg)
+	notifySuspend(bg)
+	defer stopSuspend(bg)
 
 	go func() {
 		io.Copy(os.Stdout, s.Conn)

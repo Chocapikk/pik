@@ -7,10 +7,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"sort"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/c2"
@@ -52,8 +50,8 @@ func (s *httpSession) interact() {
 	output.Status("Press Ctrl+Z to background session")
 
 	bg := make(chan os.Signal, 1)
-	signal.Notify(bg, syscall.SIGTSTP)
-	defer signal.Stop(bg)
+	notifySuspend(bg)
+	defer stopSuspend(bg)
 
 	// Read output from implant and print.
 	done := make(chan struct{})
