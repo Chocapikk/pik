@@ -40,12 +40,18 @@ type option struct {
 	Advanced bool
 }
 
+type command struct {
+	fn   func([]string)
+	desc string
+}
+
 // Console is the interactive REPL.
 type Console struct {
 	rl            *readline.Instance
 	mod           sdk.Exploit
 	options       []option
 	activeBackend c2.Backend
+	commands      map[string]command
 }
 
 // Run starts the interactive console.
@@ -53,6 +59,7 @@ func Run() error {
 	output.Banner()
 
 	cons := &Console{}
+	cons.registerCommands()
 	if err := cons.initReadline(); err != nil {
 		return err
 	}
@@ -71,6 +78,28 @@ func Run() error {
 	}
 }
 
+func (c *Console) registerCommands() {
+	c.commands = map[string]command{
+		"help":     {func(_ []string) { c.cmdHelp() }, "Show this help"},
+		"?":       {func(_ []string) { c.cmdHelp() }, ""},
+		"use":     {func(a []string) { c.cmdUse(a) }, "Select a module"},
+		"back":    {func(_ []string) { c.cmdBack() }, "Deselect current module"},
+		"info":    {func(a []string) { c.cmdInfo(a) }, "Show module details"},
+		"show":    {func(a []string) { c.cmdShow(a) }, "Show options/payloads/modules"},
+		"set":     {func(a []string) { c.cmdSet(a) }, "Set an option value"},
+		"unset":   {func(a []string) { c.cmdUnset(a) }, "Clear an option value"},
+		"check":   {func(_ []string) { c.cmdCheck() }, "Check if target is vulnerable"},
+		"exploit": {func(_ []string) { c.cmdExploit() }, "Run the exploit"},
+		"run":     {func(_ []string) { c.cmdExploit() }, ""},
+		"sessions": {func(a []string) { c.cmdSessions(a) }, "List or interact with sessions"},
+		"kill":     {func(a []string) { c.cmdKill(a) }, "Kill a session"},
+		"resource": {func(a []string) { c.cmdResource(a) }, "Run commands from a .rc file"},
+		"list":     {func(_ []string) { c.cmdList() }, "List all modules"},
+		"modules":  {func(_ []string) { c.cmdList() }, ""},
+		"rank":     {func(_ []string) { c.cmdRank() }, "Contributor leaderboard"},
+	}
+}
+
 // exec runs a single console line. Returns true if the console should exit.
 func (c *Console) exec(line string) bool {
 	line = strings.TrimSpace(line)
@@ -79,53 +108,27 @@ func (c *Console) exec(line string) bool {
 	}
 
 	parts := strings.Fields(line)
-	command := strings.ToLower(parts[0])
-	args := parts[1:]
+	name := strings.ToLower(parts[0])
 
-	switch command {
-	case "exit", "quit":
+	if name == "exit" || name == "quit" {
 		return true
-	case "help", "?":
-		c.cmdHelp()
-	case "list", "modules":
-		c.cmdList()
-	case "use":
-		c.cmdUse(args)
-	case "back":
-		c.cmdBack()
-	case "info":
-		c.cmdInfo(args)
-	case "show":
-		c.cmdShow(args)
-	case "set":
-		c.cmdSet(args)
-	case "unset":
-		c.cmdUnset(args)
-	case "check":
-		c.cmdCheck()
-	case "exploit", "run":
-		c.cmdExploit()
-	case "sessions":
-		c.cmdSessions(args)
-	case "kill":
-		c.cmdKill(args)
-	case "rank":
-		c.cmdRank()
-	case "resource":
-		c.cmdResource(args)
-	default:
-		output.Error("Unknown command: %s (type 'help' for commands)", command)
 	}
+
+	cmd, ok := c.commands[name]
+	if !ok {
+		output.Error("Unknown command: %s (type 'help' for commands)", name)
+		return false
+	}
+	cmd.fn(parts[1:])
 	return false
 }
 
 func (c *Console) initReadline() error {
-	commands := []string{
-		"use", "set", "unset", "show", "back", "info",
-		"check", "exploit", "run", "list", "modules",
-		"sessions", "kill", "resource",
-		"help", "exit", "quit",
+	var commands []string
+	for name := range c.commands {
+		commands = append(commands, name)
 	}
+	commands = append(commands, "exit", "quit")
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("use", readline.PcItemDynamic(func(line string) []string {
@@ -252,31 +255,18 @@ func (c *Console) buildParams() sdk.Params {
 // --- Commands ---
 
 func (c *Console) cmdHelp() {
-	help := []struct{ cmd, desc string }{
-		{"use <module>", "Select a module (fuzzy search if no args)"},
-		{"back", "Deselect current module"},
-		{"show options", "Show current module options"},
-		{"show advanced", "Show advanced options"},
-		{"show payloads", "List available payloads"},
-		{"show modules", "List all modules"},
-		{"set <OPT> <value>", "Set an option value"},
-		{"unset <OPT>", "Clear an option value"},
-		{"info [module]", "Show module details"},
-		{"check", "Check if target is vulnerable"},
-		{"exploit / run", "Run the exploit"},
-		{"sessions", "List active sessions"},
-		{"sessions <id>", "Interact with a session"},
-		{"kill <id>", "Kill a session"},
-		{"resource <file>", "Run commands from a .rc file"},
-		{"list", "List all modules"},
-		{"rank", "Contributor leaderboard"},
-		{"exit / quit", "Exit the console"},
-	}
-
 	output.Println()
-	for _, entry := range help {
-		output.Print("  %-25s %s\n", log.Cyan(entry.cmd), log.Gray(entry.desc))
+	for _, name := range []string{
+		"use", "back", "show", "set", "unset", "info", "check",
+		"exploit", "sessions", "kill", "resource", "list", "rank",
+	} {
+		cmd, ok := c.commands[name]
+		if !ok || cmd.desc == "" {
+			continue
+		}
+		output.Print("  %s %s\n", log.Pad(log.Cyan(name), 20), log.Gray(cmd.desc))
 	}
+	output.Print("  %s %s\n", log.Pad(log.Cyan("exit"), 20), log.Gray("Exit the console"))
 	output.Println()
 }
 
@@ -451,10 +441,10 @@ func (c *Console) showOptions(advanced bool) {
 	output.Println()
 	output.Print("  %s: %s\n", label, log.Cyan(sdk.NameOf(c.mod)))
 	output.Println(divider)
-	output.Print("  %-20s  %-35s  %-8s  %s\n",
-		log.UnderlineText("Option"),
-		log.UnderlineText("Value"),
-		log.UnderlineText("Required"),
+	output.Print("  %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("Option"), 18),
+		log.Pad(log.UnderlineText("Value"), 30),
+		log.Pad(log.UnderlineText("Required"), 8),
 		log.UnderlineText("Description"),
 	)
 
@@ -470,10 +460,10 @@ func (c *Console) showOptions(advanced bool) {
 		if opt.Required {
 			required = optReq
 		}
-		output.Print("  %-20s  %-35s  %-8s  %s\n",
-			log.Cyan(opt.Name),
-			displayVal,
-			required,
+		output.Print("  %s  %s  %s  %s\n",
+			log.Pad(log.Cyan(opt.Name), 18),
+			log.Pad(displayVal, 30),
+			log.Pad(required, 8),
 			log.Gray(opt.Desc),
 		)
 	}

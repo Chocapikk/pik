@@ -5,6 +5,8 @@ package log
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 )
 
 // ANSI escape codes.
@@ -42,6 +44,20 @@ func Gray(s string) string           { return Style(FgGray, s) }
 func DimText(s string) string        { return Style(Dim, s) }
 func BoldText(s string) string       { return Style(Bold, s) }
 func UnderlineText(s string) string  { return Style(Underline, s) }
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// VisualLen returns the display width of a string, ignoring ANSI codes.
+func VisualLen(s string) int { return len(ansiRe.ReplaceAllString(s, "")) }
+
+// Pad right-pads a (possibly ANSI-colored) string to width based on visual length.
+func Pad(s string, width int) string {
+	gap := width - VisualLen(s)
+	if gap <= 0 {
+		return s
+	}
+	return s + strings.Repeat(" ", gap)
+}
 
 // Log functions.
 
