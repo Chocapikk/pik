@@ -171,8 +171,9 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				)
 				globalIdx++
 			} else {
-				// Multiple targets: IDs on the target tree lines.
-				output.Print("      %s  %s  %s  %s\n",
+				// Multiple targets: module line with no ID, target IDs in # column.
+				output.Print("  %s  %s  %s  %s  %s\n",
+					log.Pad("", 3),
 					log.Pad(log.Cyan(e.shortName), nameW),
 					log.Pad(reliabilityStyle(info.Reliability), relW),
 					log.Pad(desc, descW),
@@ -191,9 +192,9 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 					if len(t.Arches) > 0 {
 						arches = " (" + strings.Join(t.Arches, ", ") + ")"
 					}
-					output.Print("      %s %s %s  %s\n",
+					output.Print("  %s  %s %s  %s\n",
+						log.Pad(log.Cyan(fmt.Sprintf("%d", globalIdx)), 3),
 						log.Muted(branch),
-						log.Cyan(fmt.Sprintf("%d", globalIdx)),
 						log.Gray(t.Type),
 						log.Gray(tName+arches),
 					)
