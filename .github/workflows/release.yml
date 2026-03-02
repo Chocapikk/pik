@@ -21,9 +21,19 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
+      - name: Install minisign
+        run: go install aead.dev/minisign/cmd/minisign@latest
+
+      - name: Write signing key
+        run: echo "${{ secrets.MINISIGN_KEY }}" > /tmp/minisign.key
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up signing key
+        if: always()
+        run: rm -f /tmp/minisign.key

@@ -1,19 +1,26 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 
+	"aead.dev/minisign"
 	"github.com/spf13/cobra"
 
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
-const githubRepo = "Chocapikk/pik"
+const (
+	githubRepo       = "Chocapikk/pik"
+	signingPublicKey = "RWTGq/JU6UbpIDjfAHsW9l6SYetGGY+O5bjYKpo4tjzTRnaCVTVnjvSA"
+)
 
 func updateCmd() *cobra.Command {
 	return &cobra.Command{
@@ -45,25 +52,54 @@ func autoUpdate(currentVersion string) error {
 	if runtime.GOOS == "windows" {
 		ext = ".exe"
 	}
-	url := fmt.Sprintf(
-		"https://github.com/%s/releases/download/%s/pik_%s_%s_%s%s",
-		githubRepo, latest, latest, runtime.GOOS, runtime.GOARCH, ext,
-	)
+
+	binaryName := fmt.Sprintf("pik_%s_%s_%s%s", latest, runtime.GOOS, runtime.GOARCH, ext)
+	baseURL := fmt.Sprintf("https://github.com/%s/releases/download/%s", githubRepo, latest)
+
+	// Strip leading v for checksums filename (goreleaser uses version without v prefix).
+	version := strings.TrimPrefix(latest, "v")
+	checksumsName := fmt.Sprintf("pik_%s_checksums.txt", version)
 
 	output.Status("Downloading %s", latest)
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("release not found: %s", url)
+	binary, err := httpGet(baseURL + "/" + binaryName)
+	if err != nil {
+		return fmt.Errorf("download binary: %w", err)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	checksums, err := httpGet(baseURL + "/" + checksumsName)
 	if err != nil {
-		return fmt.Errorf("read failed: %w", err)
+		return fmt.Errorf("download checksums: %w", err)
+	}
+
+	signature, err := httpGet(baseURL + "/" + checksumsName + ".minisig")
+	if err != nil {
+		return fmt.Errorf("download signature: %w", err)
+	}
+
+	output.Status("Verifying signature...")
+
+	var pubKey minisign.PublicKey
+	if err := pubKey.UnmarshalText([]byte(signingPublicKey)); err != nil {
+		return fmt.Errorf("invalid embedded public key: %w", err)
+	}
+
+	if !minisign.Verify(pubKey, checksums, signature) {
+		return fmt.Errorf("signature verification failed - binary may have been tampered with")
+	}
+
+	output.Status("Verifying checksum...")
+
+	hash := sha256.Sum256(binary)
+	got := hex.EncodeToString(hash[:])
+
+	expected, err := findChecksum(checksums, binaryName)
+	if err != nil {
+		return err
+	}
+
+	if got != expected {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expected, got)
 	}
 
 	exe, err := os.Executable()
@@ -72,7 +108,7 @@ func autoUpdate(currentVersion string) error {
 	}
 
 	tmp := exe + ".tmp"
-	if err := os.WriteFile(tmp, body, 0o755); err != nil {
+	if err := os.WriteFile(tmp, binary, 0o755); err != nil {
 		return fmt.Errorf("write failed: %w", err)
 	}
 
@@ -81,11 +117,36 @@ func autoUpdate(currentVersion string) error {
 	}
 
 	if err := os.Rename(tmp, exe); err != nil {
+		os.Remove(tmp)
 		return fmt.Errorf("replace failed: %w", err)
 	}
 
-	output.Success("Updated to %s. Restart pik to use the new version.", latest)
+	output.Success("Updated to %s (signature verified). Restart pik to use the new version.", latest)
 	return nil
+}
+
+func httpGet(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, url)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func findChecksum(checksums []byte, filename string) (string, error) {
+	for _, line := range strings.Split(string(checksums), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[1] == filename {
+			return parts[0], nil
+		}
+	}
+	return "", fmt.Errorf("checksum not found for %s", filename)
 }
 
 func latestRelease() (string, error) {

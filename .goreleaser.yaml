@@ -26,6 +26,15 @@ archives:
   - formats: binary
     name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+signs:
+  - cmd: minisign
+    args:
+      - "-Sm"
+      - "${artifact}"
+      - "-s"
+      - "/tmp/minisign.key"
+    artifacts: checksum
+
 changelog:
   sort: asc
   groups:
