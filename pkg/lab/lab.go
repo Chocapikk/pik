@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/sdk"
@@ -79,24 +80,19 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 		}
 
 		for _, svc := range services {
-			if svc.Config.Image == "" {
+			if svc.Image == "" {
 				return fmt.Errorf("service %q: no image specified", svc.Name)
 			}
 
-			output.Status("Pulling %s", svc.Config.Image)
-			reader, err := cli.ImagePull(ctx, svc.Config.Image, image.PullOptions{})
+			output.Status("Pulling %s", svc.Image)
+			reader, err := cli.ImagePull(ctx, svc.Image, image.PullOptions{})
 			if err != nil {
-				return fmt.Errorf("pull %s: %w", svc.Config.Image, err)
+				return fmt.Errorf("pull %s: %w", svc.Image, err)
 			}
 			io.Copy(io.Discard, reader)
 			reader.Close()
 
-			cfg := svc.Config
-			if cfg.Labels == nil {
-				cfg.Labels = make(map[string]string)
-			}
-			cfg.Labels[labelLab] = name
-			cfg.Labels[labelService] = svc.Name
+			cfg, hostCfg := toDocker(svc, name)
 
 			netCfg := &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
@@ -109,7 +105,7 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 
 			containerName := "pik-" + name + "-" + svc.Name
 			output.Status("Creating %s", containerName)
-			resp, err := cli.ContainerCreate(ctx, &cfg, &svc.HostConfig, netCfg, nil, containerName)
+			resp, err := cli.ContainerCreate(ctx, cfg, hostCfg, netCfg, nil, containerName)
 			if err != nil {
 				return fmt.Errorf("create %s: %w", containerName, err)
 			}
@@ -117,9 +113,9 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 			if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 				return fmt.Errorf("start %s: %w", containerName, err)
 			}
-			output.Success("Started %s (%s)", containerName, svc.Config.Image)
+			output.Success("Started %s (%s)", containerName, svc.Image)
 
-			if svc.Config.Healthcheck != nil {
+			if len(svc.Healthcheck) > 0 {
 				output.Status("Waiting for %s to be healthy", svc.Name)
 				err := poll(ctx, 120*time.Second, 2*time.Second, func() error {
 					inspect, err := cli.ContainerInspect(ctx, resp.ID)
@@ -225,8 +221,9 @@ func IsRunning(ctx context.Context, name string) bool {
 // service definitions by finding the first host port binding.
 func Target(services []sdk.Service) string {
 	for _, svc := range services {
-		for _, bindings := range svc.HostConfig.PortBindings {
-			for _, binding := range bindings {
+		_, bindings, _ := nat.ParsePortSpecs(svc.Ports)
+		for _, portBindings := range bindings {
+			for _, binding := range portBindings {
 				if binding.HostPort != "" {
 					return "127.0.0.1:" + binding.HostPort
 				}
@@ -268,6 +265,48 @@ func DockerGateway() string {
 }
 
 // --- Internal ---
+
+// toDocker converts an sdk.Service to Docker SDK types.
+func toDocker(svc sdk.Service, labName string) (*container.Config, *container.HostConfig) {
+	exposed, bindings, _ := nat.ParsePortSpecs(svc.Ports)
+
+	cfg := &container.Config{
+		Image:        svc.Image,
+		ExposedPorts: exposed,
+		Env:          envSlice(svc.Env),
+		Cmd:          svc.Cmd,
+		Labels: map[string]string{
+			labelLab:     labName,
+			labelService: svc.Name,
+		},
+	}
+	if len(svc.Healthcheck) > 0 {
+		cfg.Healthcheck = &container.HealthConfig{
+			Test:        append([]string{"CMD-SHELL"}, svc.Healthcheck...),
+			Interval:    5 * time.Second,
+			StartPeriod: 30 * time.Second,
+		}
+	}
+
+	hostCfg := &container.HostConfig{
+		PortBindings:  bindings,
+		Binds:         svc.Volumes,
+		RestartPolicy: container.RestartPolicy{Name: "unless-stopped"},
+	}
+
+	return cfg, hostCfg
+}
+
+func envSlice(m map[string]string) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	env := make([]string, 0, len(m))
+	for k, v := range m {
+		env = append(env, k+"="+v)
+	}
+	return env
+}
 
 func teardown(ctx context.Context, cli *client.Client, name string) {
 	containers, _ := cli.ContainerList(ctx, container.ListOptions{
