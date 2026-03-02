@@ -67,7 +67,7 @@ func RunStandalone(name string) {
 		output.Error("module %q not found", name)
 		os.Exit(1)
 	}
-	RunStandaloneWith(mod)
+	RunStandaloneWith(mod, sdk.RunOptions{})
 }
 
 func runConsole() {
