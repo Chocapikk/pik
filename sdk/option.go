@@ -95,6 +95,9 @@ func OptBool(name string, def bool, desc string) Option {
 }
 
 func OptEnum(name, def, desc string, values ...string) Option {
+	if len(values) > 0 {
+		desc += " [" + strings.Join(values, ", ") + "]"
+	}
 	return Option{Name: name, Type: TypeEnum, Default: def, Desc: desc, Enums: values}
 }
 
