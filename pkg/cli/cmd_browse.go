@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/sdk"
+	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 func listCmd() *cobra.Command {
@@ -25,7 +27,12 @@ func listCmd() *cobra.Command {
 				if cves == "" {
 					cves = "-"
 				}
-				output.Print("  %-20s %-12s %-40s [%s]\n", sdk.NameOf(mod), info.Reliability, info.Description, cves)
+				output.Print("  %s %s %s [%s]\n",
+					log.Pad(sdk.NameOf(mod), 20),
+					log.Pad(info.Reliability.String(), 12),
+					log.Pad(info.Description, 40),
+					cves,
+				)
 			}
 		},
 	}
@@ -42,7 +49,11 @@ func rankCmd() *cobra.Command {
 				return
 			}
 			for i, rank := range rankings {
-				output.Print("  #%-3d %-20s %d modules, %d CVEs\n", i+1, rank.Name, rank.Modules, rank.CVEs)
+				output.Print("  #%s %s %d modules, %d CVEs\n",
+					log.Pad(fmt.Sprintf("%d", i+1), 3),
+					log.Pad(rank.Name, 20),
+					rank.Modules, rank.CVEs,
+				)
 			}
 		},
 	}

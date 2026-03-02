@@ -50,9 +50,15 @@ func (d fuzzyDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 	if index == m.Index() {
 		prefix, nameStyle = "> ", d.selectedStyle
 	}
-	line = fmt.Sprintf("%s%-35s %s",
+	rendered := nameStyle.Render(fi.name)
+	pad := 35 - lipgloss.Width(rendered)
+	if pad < 0 {
+		pad = 0
+	}
+	line = fmt.Sprintf("%s%s%s %s",
 		prefix,
-		nameStyle.Render(fi.name),
+		rendered,
+		strings.Repeat(" ", pad),
 		d.descStyle.Render(fi.desc),
 	)
 

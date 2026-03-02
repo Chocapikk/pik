@@ -33,15 +33,15 @@ func (c *Console) cmdSessions(args []string) {
 	}
 
 	output.Println()
-	output.Print("  %-6s  %-25s  %s\n",
-		log.UnderlineText("ID"),
-		log.UnderlineText("Remote Address"),
+	output.Print("  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("ID"), 6),
+		log.Pad(log.UnderlineText("Remote Address"), 25),
 		log.UnderlineText("Opened"),
 	)
 	for _, sess := range sessions {
-		output.Print("  %-6s  %-25s  %s\n",
-			log.Cyan(strconv.Itoa(sess.ID)),
-			log.White(sess.RemoteAddr),
+		output.Print("  %s  %s  %s\n",
+			log.Pad(log.Cyan(strconv.Itoa(sess.ID)), 6),
+			log.Pad(log.White(sess.RemoteAddr), 25),
 			log.Gray(sess.CreatedAt.Format("15:04:05")),
 		)
 	}

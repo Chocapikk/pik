@@ -119,8 +119,8 @@ func (c *Console) showPayloads() {
 	}
 
 	output.Println()
-	output.Print("  %-35s  %s\n",
-		log.UnderlineText("Payload"),
+	output.Print("  %s  %s\n",
+		log.Pad(log.UnderlineText("Payload"), 35),
 		log.UnderlineText("Description"),
 	)
 	current := c.getOpt("PAYLOAD")
@@ -131,7 +131,7 @@ func (c *Console) showPayloads() {
 			marker = log.Green("* ")
 			displayName = log.Green(pl.Name)
 		}
-		output.Print("%s%-35s  %s\n", marker, displayName, log.Gray(pl.Description))
+		output.Print("%s%s  %s\n", marker, log.Pad(displayName, 35), log.Gray(pl.Description))
 	}
 	output.Println()
 }

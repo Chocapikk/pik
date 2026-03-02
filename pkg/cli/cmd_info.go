@@ -5,8 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/sdk"
+	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 func infoCmd() *cobra.Command {
@@ -52,7 +53,7 @@ func infoCmd() *cobra.Command {
 			if len(info.Queries) > 0 {
 				output.Print("\nQueries:\n")
 				for _, q := range info.Queries {
-					output.Print("  %-12s %s\n", q.Engine+":", q.URL())
+					output.Print("  %s %s\n", log.Pad(q.Engine+":", 12), q.URL())
 				}
 			}
 		},

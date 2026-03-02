@@ -1,14 +1,16 @@
 package console
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/chzyer/readline"
 
 	"github.com/Chocapikk/pik/pkg/c2"
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 var (
@@ -75,6 +77,7 @@ func (c *Console) registerCommands() {
 		"list":     {func(_ []string) { c.cmdList() }, "List all modules"},
 		"modules":  {func(_ []string) { c.cmdList() }, ""},
 		"rank":     {func(_ []string) { c.cmdRank() }, "Contributor leaderboard"},
+		"search":   {func(a []string) { c.cmdSearch(a) }, "Search modules by keyword"},
 	}
 }
 
@@ -128,6 +131,9 @@ func (c *Console) initReadline() error {
 		readline.PcItem("info", readline.PcItemDynamic(func(line string) []string {
 			return sdk.Names()
 		})),
+		readline.PcItem("search", readline.PcItemDynamic(func(line string) []string {
+			return sdk.Names()
+		})),
 	)
 	for _, cmd := range commands {
 		switch cmd {
@@ -137,11 +143,18 @@ func (c *Console) initReadline() error {
 		completer.Children = append(completer.Children, readline.PcItem(cmd))
 	}
 
+	historyFile := ""
+	if home, err := os.UserHomeDir(); err == nil {
+		historyFile = filepath.Join(home, ".pik_history")
+	}
+
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          c.buildPrompt(),
-		AutoComplete:    completer,
-		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
+		Prompt:            c.buildPrompt(),
+		AutoComplete:      completer,
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		HistoryFile:       historyFile,
+		HistorySearchFold: true,
 	})
 	if err != nil {
 		return err

@@ -63,9 +63,9 @@ func HumanSize(bytes int) string {
 
 func InfoBox(title string, pairs ...string) {
 	border := log.Gray(strings.Repeat("─", 45))
-	fmt.Fprintf(os.Stderr, "\n %s %s %s\n", log.Gray("┌"), log.Cyan(title), log.Gray(strings.Repeat("─", max(0, 43-len(title)))))
+	fmt.Fprintf(os.Stderr, "\n %s %s %s\n", log.Gray("┌"), log.Cyan(title), log.Gray(strings.Repeat("─", max(0, 43-log.VisualLen(title)))))
 	for i := 0; i+1 < len(pairs); i += 2 {
-		fmt.Fprintf(os.Stderr, " %s  %-14s %s\n", log.Gray("│"), log.Blue(pairs[i]), log.Cyan(pairs[i+1]))
+		fmt.Fprintf(os.Stderr, " %s  %s %s\n", log.Gray("│"), log.Pad(log.Blue(pairs[i]), 14), log.Cyan(pairs[i+1]))
 	}
 	fmt.Fprintf(os.Stderr, " %s\n\n", border)
 }
