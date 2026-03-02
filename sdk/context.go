@@ -11,6 +11,7 @@ type Context struct {
 	values    map[string]string
 	payload   string
 	commands  []string
+	target    Target
 	startTime time.Time
 	timing    bool
 
@@ -50,6 +51,12 @@ func (c *Context) Commands() []string { return c.commands }
 
 // SetCommands is called by the runner to inject CmdStager commands.
 func (c *Context) SetCommands(cmds []string) { c.commands = cmds }
+
+// Target returns the selected target from module metadata.
+func (c *Context) Target() Target { return c.target }
+
+// SetTarget is called by the runner to set the active target.
+func (c *Context) SetTarget(t Target) { c.target = t }
 
 // --- Logging ---
 
