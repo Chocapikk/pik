@@ -8,6 +8,7 @@ const (
 	RefGHSA        RefType = "GHSA"
 	RefEDB         RefType = "EDB"
 	RefPacketstorm RefType = "PACKETSTORM"
+	RefVulnCheck   RefType = "VULNCHECK"
 	RefURL         RefType = "URL"
 )
 
@@ -28,6 +29,8 @@ func (r Reference) URL() string {
 		return "https://www.exploit-db.com/exploits/" + r.ID
 	case RefPacketstorm:
 		return "https://packetstormsecurity.com/files/" + r.ID
+	case RefVulnCheck:
+		return "https://www.vulncheck.com/advisories/" + r.ID
 	case RefURL:
 		return r.ID
 	default:
@@ -45,5 +48,6 @@ func (r Reference) String() string {
 func CVE(id string) Reference        { return Reference{Type: RefCVE, ID: "CVE-" + id} }
 func GHSA(id string) Reference       { return Reference{Type: RefGHSA, ID: "GHSA-" + id} }
 func EDB(id string) Reference        { return Reference{Type: RefEDB, ID: id} }
-func Packetstorm(id string) Reference { return Reference{Type: RefPacketstorm, ID: id} }
-func URL(u string) Reference         { return Reference{Type: RefURL, ID: u} }
+func Packetstorm(id string) Reference  { return Reference{Type: RefPacketstorm, ID: id} }
+func VulnCheck(slug string) Reference  { return Reference{Type: RefVulnCheck, ID: slug} }
+func URL(u string) Reference           { return Reference{Type: RefURL, ID: u} }
