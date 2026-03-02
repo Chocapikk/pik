@@ -1,0 +1,34 @@
+version: 2
+project_name: pik
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./sdk/
+
+builds:
+  - main: ./cmd/pik/
+    binary: pik
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w -X github.com/Chocapikk/pik/pkg/cli.Version=v{{ .Version }}"
+
+archives:
+  - formats: binary
+    name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+release:
+  name_template: "Pik v{{ .Version }}"
+  github:
+    owner: Chocapikk
+    name: pik
