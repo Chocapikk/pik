@@ -1,6 +1,10 @@
 package c2
 
-import "time"
+import (
+	"time"
+
+	"github.com/Chocapikk/pik/pkg/c2/session"
+)
 
 // Backend is the interface for C2 integrations (built-in shell, Sliver, etc.).
 type Backend interface {
@@ -29,6 +33,14 @@ type Stager interface {
 // CmdStager chunking. The backend manages the TCP listener internally.
 type TCPStager interface {
 	TCPStageImplant(targetOS, arch string) ([]byte, error)
+}
+
+// SessionHandler is an optional interface for backends that support
+// multiple concurrent sessions.
+type SessionHandler interface {
+	Sessions() []*session.Session
+	Interact(id int) error
+	Kill(id int) error
 }
 
 // Factory creates a Backend from a config path.

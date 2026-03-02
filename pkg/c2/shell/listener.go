@@ -2,43 +2,41 @@ package shell
 
 import (
 	"fmt"
-	"io"
 	"net"
-	"os"
 	"time"
 
+	"github.com/Chocapikk/pik/pkg/c2/session"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
 )
 
 // --- Types ---
 
-// Listener is a built-in TCP reverse shell listener.
+// Listener is a built-in TCP reverse shell listener with session management.
 type Listener struct {
-	listener net.Listener
-	conn     net.Conn
-	lhost    string
-	lport    int
+	manager *session.Manager
+	lhost   string
+	lport   int
 }
 
 // Payload generators indexed by PAYLOAD option value.
 var payloads = map[string]func(string, int) string{
-	"reverse_bash":       payload.Bash,
-	"reverse_bash_min":   payload.BashMin,
-	"reverse_bash_fd":    payload.BashFD,
-	"reverse_python":     payload.Python,
-	"reverse_python_pty": payload.PythonPTY,
-	"reverse_perl":       payload.Perl,
-	"reverse_ruby":       payload.Ruby,
-	"reverse_php":        payload.PHP,
-	"reverse_netcat":     payload.Netcat,
+	"reverse_bash":          payload.Bash,
+	"reverse_bash_min":      payload.BashMin,
+	"reverse_bash_fd":       payload.BashFD,
+	"reverse_python":        payload.Python,
+	"reverse_python_pty":    payload.PythonPTY,
+	"reverse_perl":          payload.Perl,
+	"reverse_ruby":          payload.Ruby,
+	"reverse_php":           payload.PHP,
+	"reverse_netcat":        payload.Netcat,
 	"reverse_netcat_mkfifo": payload.NetcatMkfifo,
-	"reverse_powershell": payload.PowerShell,
-	"reverse_socat":      payload.Socat,
-	"reverse_nodejs":     payload.NodeJS,
-	"reverse_awk":        payload.Awk,
-	"reverse_lua":        payload.Lua,
-	"reverse_java":       payload.Java,
+	"reverse_powershell":    payload.PowerShell,
+	"reverse_socat":         payload.Socat,
+	"reverse_nodejs":        payload.NodeJS,
+	"reverse_awk":           payload.Awk,
+	"reverse_lua":           payload.Lua,
+	"reverse_java":          payload.Java,
 }
 
 // --- Constructor ---
@@ -56,7 +54,8 @@ func (l *Listener) Setup(lhost string, lport int) error {
 	if err != nil {
 		return fmt.Errorf("failed to start listener: %w", err)
 	}
-	l.listener = ln
+	l.manager = session.NewManager(ln)
+	l.manager.Start()
 	output.Status("Listening on %s:%d", lhost, lport)
 	return nil
 }
@@ -82,38 +81,39 @@ func (l *Listener) GeneratePayload(targetOS, payloadType string) (string, error)
 
 // --- Session ---
 
+// WaitForSession blocks until a session connects or the timeout expires.
+// For backward compatibility, it accepts the first session and enters interactive mode.
 func (l *Listener) WaitForSession(timeout time.Duration) error {
-	if timeout > 0 {
-		if tcpLn, ok := l.listener.(*net.TCPListener); ok {
-			_ = tcpLn.SetDeadline(time.Now().Add(timeout))
-		}
-	}
-
-	conn, err := l.listener.Accept()
+	sess, err := l.manager.Accept(timeout)
 	if err != nil {
 		return fmt.Errorf("no session received: %w", err)
 	}
-	l.conn = conn
-	output.Success("Session from %s", conn.RemoteAddr())
-
-	done := make(chan struct{})
-	go func() {
-		io.Copy(os.Stdout, conn)
-		close(done)
-	}()
-	go io.Copy(conn, os.Stdin)
-	<-done
+	sess.Interact()
 	return nil
+}
+
+// --- SessionHandler interface ---
+
+// Sessions returns all alive sessions.
+func (l *Listener) Sessions() []*session.Session {
+	return l.manager.List()
+}
+
+// Interact enters interactive mode for the given session.
+func (l *Listener) Interact(id int) error {
+	return l.manager.Interact(id)
+}
+
+// Kill terminates a session by ID.
+func (l *Listener) Kill(id int) error {
+	return l.manager.Kill(id)
 }
 
 // --- Shutdown ---
 
 func (l *Listener) Shutdown() error {
-	if l.conn != nil {
-		l.conn.Close()
-	}
-	if l.listener != nil {
-		l.listener.Close()
+	if l.manager != nil {
+		l.manager.Close()
 	}
 	return nil
 }
