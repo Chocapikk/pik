@@ -11,7 +11,9 @@ type MyExploit struct{ sdk.Pik }
 func (m *MyExploit) Info() sdk.Info {
 	return sdk.Info{
 		Description:    "Example standalone exploit",
-		Authors:        []string{"Chocapikk"},
+		Authors: []sdk.Author{
+			{Name: "Valentin Lobstein", Handle: "Chocapikk"},
+		},
 		DisclosureDate: "2026-01-01",
 		Reliability:    sdk.Typical,
 		Stance:         sdk.Aggressive,

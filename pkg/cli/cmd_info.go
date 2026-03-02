@@ -24,7 +24,7 @@ func infoCmd() *cobra.Command {
 			if info.Detail != "" {
 				output.Print("\n%s\n\n", info.Detail)
 			}
-			output.Print("Authors:      %s\n", strings.Join(info.Authors, ", "))
+			output.Print("Authors:      %s\n", info.AuthorNames())
 			if info.DisclosureDate != "" {
 				output.Print("Disclosed:    %s\n", info.DisclosureDate)
 			}
