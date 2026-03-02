@@ -236,7 +236,7 @@ func (s Service) WithHealthcheck(cmd string) Service {
 type Author struct {
 	Name   string // real name or alias
 	Handle string // online handle (e.g. "Chocapikk")
-	Email  string // contact email (pass raw "user@domain", stored as "<user[at]domain>")
+	Email  string // contact email, must use <user[at]domain> format (Register panics on raw @)
 }
 
 // ObfuscateEmail formats a raw email to <user[at]domain>.
