@@ -4,7 +4,6 @@ project_name: pik
 before:
   hooks:
     - go mod tidy
-    - go generate ./sdk/
 
 builds:
   - main: ./cmd/pik/

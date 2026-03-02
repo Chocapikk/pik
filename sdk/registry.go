@@ -1,4 +1,4 @@
-package core
+package sdk
 
 import (
 	"fmt"
@@ -24,11 +24,6 @@ type entry struct {
 // use 1 when called through an intermediary (like sdk.Register wrapper).
 func Register(mod Exploit) {
 	register(mod, 2)
-}
-
-// RegisterFrom is like Register but with explicit caller skip for wrappers.
-func RegisterFrom(mod Exploit, skip int) {
-	register(mod, skip)
 }
 
 func register(mod Exploit, skip int) {
@@ -101,7 +96,7 @@ func Names() []string {
 func callerModuleName(skip int) string {
 	_, file, _, ok := runtime.Caller(skip + 1)
 	if !ok {
-		panic("core.Register: cannot determine caller")
+		panic("sdk.Register: cannot determine caller")
 	}
 	const marker = "modules/"
 	if idx := strings.LastIndex(file, marker); idx != -1 {

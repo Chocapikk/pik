@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	pikhttp "github.com/Chocapikk/pik/pkg/http"
 	"github.com/Chocapikk/pik/pkg/output"
 )
@@ -23,10 +23,10 @@ type Result struct {
 
 // Scanner runs vulnerability checks against multiple targets concurrently.
 type Scanner struct {
-	Module     core.Exploit
+	Module     sdk.Exploit
 	Targets    []string
 	Threads    int
-	BaseParams core.Params
+	BaseParams sdk.Params
 	OutputFile string
 }
 
@@ -34,9 +34,9 @@ type Scanner struct {
 
 // Run checks all targets and returns results.
 func (s *Scanner) Run(ctx context.Context) []Result {
-	checker, ok := s.Module.(core.Checker)
+	checker, ok := s.Module.(sdk.Checker)
 	if !ok {
-		output.Warning("Module %s does not support check", core.NameOf(s.Module))
+		output.Warning("Module %s does not support check", sdk.NameOf(s.Module))
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func (s *Scanner) Run(ctx context.Context) []Result {
 
 // --- Internal ---
 
-func (s *Scanner) checkTarget(ctx context.Context, checker core.Checker, addr string) Result {
+func (s *Scanner) checkTarget(ctx context.Context, checker sdk.Checker, addr string) Result {
 	params := s.BaseParams.Clone()
 	params.Ctx = ctx
 	params.Set("TARGET", addr)

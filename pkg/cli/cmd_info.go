@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
@@ -18,7 +18,7 @@ func infoCmd() *cobra.Command {
 			mod := resolveModule(args[0])
 			info := mod.Info()
 
-			output.Print("Name:         %s\n", core.NameOf(mod))
+			output.Print("Name:         %s\n", sdk.NameOf(mod))
 			output.Print("Description:  %s\n", info.Description)
 			if info.Detail != "" {
 				output.Print("\n%s\n\n", info.Detail)

@@ -9,7 +9,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/shell"
 	"github.com/Chocapikk/pik/pkg/cmdstager"
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	pikhttp "github.com/Chocapikk/pik/pkg/http"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
@@ -26,7 +26,7 @@ type RunOpts struct {
 // --- Public API ---
 
 // RunSingle checks and/or exploits a single target.
-func RunSingle(ctx context.Context, mod core.Exploit, params core.Params, opts RunOpts) error {
+func RunSingle(ctx context.Context, mod sdk.Exploit, params sdk.Params, opts RunOpts) error {
 	target := params.Target()
 
 	if err := check(mod, params, target, opts.CheckOnly); err != nil {
@@ -54,11 +54,11 @@ func RunSingle(ctx context.Context, mod core.Exploit, params core.Params, opts R
 
 // --- Check ---
 
-func check(mod core.Exploit, params core.Params, target string, required bool) error {
-	checker, ok := mod.(core.Checker)
+func check(mod sdk.Exploit, params sdk.Params, target string, required bool) error {
+	checker, ok := mod.(sdk.Checker)
 	if !ok {
 		if required {
-			output.Warning("Module %s does not support check", core.NameOf(mod))
+			output.Warning("Module %s does not support check", sdk.NameOf(mod))
 		}
 		return nil
 	}
@@ -78,7 +78,7 @@ func check(mod core.Exploit, params core.Params, target string, required bool) e
 
 // --- Delivery: direct payload ---
 
-func deliverPayload(target string, mod core.Exploit, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
+func deliverPayload(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	payloadCmd, err := resolvePayload(backend, params, platform)
 	if err != nil {
 		return fmt.Errorf("payload generation failed: %w", err)
@@ -95,10 +95,10 @@ func deliverPayload(target string, mod core.Exploit, backend c2.Backend, params 
 
 // --- Delivery: cmdstager ---
 
-func deliverCmdStager(target string, mod core.Exploit, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
-	stager, ok := mod.(core.CmdStager)
+func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
+	stager, ok := mod.(sdk.CmdStager)
 	if !ok {
-		return fmt.Errorf("module %s does not support cmdstager delivery", core.NameOf(mod))
+		return fmt.Errorf("module %s does not support cmdstager delivery", sdk.NameOf(mod))
 	}
 
 	fetch := params.GetOr("FETCH_COMMAND", "curl")
@@ -129,7 +129,7 @@ func deliverCmdStager(target string, mod core.Exploit, backend c2.Backend, param
 	return backend.WaitForSession(timeout)
 }
 
-func deliverTCPStager(target string, mod core.CmdStager, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
+func deliverTCPStager(target string, mod sdk.CmdStager, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	tcpBackend, ok := backend.(c2.TCPStager)
 	if !ok {
 		return fmt.Errorf("backend %q does not support TCP staging", backend.Name())
@@ -165,7 +165,7 @@ type stagerOpts struct {
 	tempPath string
 }
 
-func generateCmdStager(data []byte, params core.Params) ([]string, stagerOpts) {
+func generateCmdStager(data []byte, params sdk.Params) ([]string, stagerOpts) {
 	tempPath := remotePath(params)
 	flavor := cmdstager.Flavor(params.GetOr("CMDSTAGER", string(cmdstager.DefaultFlavor)))
 
@@ -183,7 +183,7 @@ func generateCmdStager(data []byte, params core.Params) ([]string, stagerOpts) {
 
 // --- Path resolution ---
 
-func remotePath(params core.Params) string {
+func remotePath(params sdk.Params) string {
 	if path := params.Get("REMOTE_PATH"); path != "" {
 		return path
 	}
@@ -192,7 +192,7 @@ func remotePath(params core.Params) string {
 
 // --- Payload resolution ---
 
-func resolvePayload(backend c2.Backend, params core.Params, platform string) (string, error) {
+func resolvePayload(backend c2.Backend, params sdk.Params, platform string) (string, error) {
 	stager, ok := backend.(c2.Stager)
 	if !ok {
 		return backend.GeneratePayload(platform, params.GetOr("PAYLOAD", ""))
@@ -238,8 +238,8 @@ func resolvePayload(backend c2.Backend, params core.Params, platform string) (st
 
 // --- Context wiring ---
 
-func buildContext(params core.Params, payloadCmd string) *core.Context {
-	ctx := core.NewContext(params.Map(), payloadCmd)
+func buildContext(params sdk.Params, payloadCmd string) *sdk.Context {
+	ctx := sdk.NewContext(params.Map(), payloadCmd)
 	ctx.StatusFn = output.Status
 	ctx.SuccessFn = output.Success
 	ctx.ErrorFn = output.Error
@@ -251,9 +251,9 @@ func buildContext(params core.Params, payloadCmd string) *core.Context {
 	return ctx
 }
 
-func httpBridge(params core.Params) func(core.Request) (*core.Response, error) {
+func httpBridge(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
 	run := pikhttp.FromModule(params)
-	return func(req core.Request) (*core.Response, error) {
+	return func(req sdk.Request) (*sdk.Response, error) {
 		resp, err := run.Send(pikhttp.Request{
 			Method:      req.Method,
 			Path:        req.Path,
@@ -267,7 +267,7 @@ func httpBridge(params core.Params) func(core.Request) (*core.Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		r := &core.Response{StatusCode: resp.StatusCode, Body: resp.Body}
+		r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body}
 		r.SetContainsFn(resp.ContainsAny)
 		return r, nil
 	}
@@ -275,7 +275,7 @@ func httpBridge(params core.Params) func(core.Request) (*core.Response, error) {
 
 // --- C2 resolution ---
 
-func resolveC2(params core.Params) c2.Backend {
+func resolveC2(params sdk.Params) c2.Backend {
 	if backend := c2.Resolve(params.Get("C2"), params.Get("C2CONFIG")); backend != nil {
 		return backend
 	}

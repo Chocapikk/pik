@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/toolchain"
 )
@@ -32,7 +32,7 @@ func buildCmd() *cobra.Command {
 
 func buildExploit(name, outputPath, targetOS, targetArch string) error {
 	mod := resolveModule(name)
-	fullName := core.NameOf(mod)
+	fullName := sdk.NameOf(mod)
 
 	if outputPath == "" {
 		outputPath = filepath.Base(fullName)

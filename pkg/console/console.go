@@ -13,7 +13,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/shell"
 	"github.com/Chocapikk/pik/pkg/cmdstager"
-	"github.com/Chocapikk/pik/pkg/core"
+	"github.com/Chocapikk/pik/sdk"
 	pikhttp "github.com/Chocapikk/pik/pkg/http"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
@@ -41,7 +41,7 @@ type option struct {
 // Console is the interactive REPL.
 type Console struct {
 	rl            *readline.Instance
-	mod           core.Exploit
+	mod           sdk.Exploit
 	options       []option
 	activeBackend c2.Backend
 }
@@ -118,7 +118,7 @@ func (c *Console) initReadline() error {
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("use", readline.PcItemDynamic(func(line string) []string {
-			return core.Names()
+			return sdk.Names()
 		})),
 		readline.PcItem("set", readline.PcItemDynamic(func(line string) []string {
 			return c.optionNames()
@@ -133,7 +133,7 @@ func (c *Console) initReadline() error {
 			readline.PcItem("modules"),
 		),
 		readline.PcItem("info", readline.PcItemDynamic(func(line string) []string {
-			return core.Names()
+			return sdk.Names()
 		})),
 	)
 	for _, cmd := range commands {
@@ -159,7 +159,7 @@ func (c *Console) initReadline() error {
 
 func (c *Console) buildPrompt() string {
 	if c.mod != nil {
-		return promptBase + " " + log.Red(core.NameOf(c.mod)) + promptArrow
+		return promptBase + " " + log.Red(sdk.NameOf(c.mod)) + promptArrow
 	}
 	return promptBase + promptArrow
 }
@@ -181,7 +181,7 @@ func (c *Console) initOptions() {
 		{Name: "TARGET", Required: true, Desc: "Target URL/IP"},
 	}
 
-	for _, opt := range core.ResolveOptions(c.mod) {
+	for _, opt := range sdk.ResolveOptions(c.mod) {
 		c.options = append(c.options, option{
 			Name:     opt.Name,
 			Value:    opt.Default,
@@ -227,15 +227,15 @@ func (c *Console) setOpt(name, value string) bool {
 	return false
 }
 
-// buildParams creates a core.Params from all current option values.
-func (c *Console) buildParams() core.Params {
+// buildParams creates a sdk.Params from all current option values.
+func (c *Console) buildParams() sdk.Params {
 	values := make(map[string]string, len(c.options))
 	for _, opt := range c.options {
 		if opt.Value != "" {
 			values[strings.ToUpper(opt.Name)] = opt.Value
 		}
 	}
-	return core.NewParams(context.Background(), values)
+	return sdk.NewParams(context.Background(), values)
 }
 
 // --- Commands ---
@@ -269,7 +269,7 @@ func (c *Console) cmdHelp() {
 }
 
 func (c *Console) cmdList() {
-	modules := core.List()
+	modules := sdk.List()
 	if len(modules) == 0 {
 		output.Warning("No modules loaded")
 		return
@@ -288,7 +288,7 @@ func (c *Console) cmdList() {
 			cves = "-"
 		}
 		output.Print("  %-20s  %-10s  %-35s  %s\n",
-			log.Cyan(core.NameOf(mod)),
+			log.Cyan(sdk.NameOf(mod)),
 			reliabilityStyle(info.Reliability),
 			info.Description,
 			log.Yellow(cves),
@@ -298,7 +298,7 @@ func (c *Console) cmdList() {
 }
 
 func (c *Console) cmdRank() {
-	rankings := core.Rankings()
+	rankings := sdk.Rankings()
 	if len(rankings) == 0 {
 		output.Warning("No modules loaded")
 		return
@@ -333,12 +333,12 @@ func (c *Console) cmdUse(args []string) {
 			c.rl.Terminal.EnterRawMode()
 		}()
 
-		modules := core.List()
+		modules := sdk.List()
 		items := make([]fuzzyItem, len(modules))
 		for i, mod := range modules {
 			info := mod.Info()
 			cves := strings.Join(info.CVEs(), ", ")
-			items[i] = fuzzyItem{name: core.NameOf(mod), desc: cves}
+			items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: cves}
 		}
 
 		selected, ok := FuzzySelect("Select module", items)
@@ -348,7 +348,7 @@ func (c *Console) cmdUse(args []string) {
 		name = selected
 	}
 
-	mod := core.Get(name)
+	mod := sdk.Get(name)
 	if mod == nil {
 		output.Error("Module %q not found", name)
 		return
@@ -357,7 +357,7 @@ func (c *Console) cmdUse(args []string) {
 	c.mod = mod
 	c.initOptions()
 	c.updatePrompt()
-	output.Success("Using %s - %s", core.NameOf(mod), mod.Info().Description)
+	output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Description)
 }
 
 func (c *Console) cmdBack() {
@@ -369,7 +369,7 @@ func (c *Console) cmdBack() {
 func (c *Console) cmdInfo(args []string) {
 	mod := c.mod
 	if len(args) > 0 {
-		mod = core.Get(args[0])
+		mod = sdk.Get(args[0])
 	}
 
 	if mod == nil {
@@ -379,7 +379,7 @@ func (c *Console) cmdInfo(args []string) {
 
 	info := mod.Info()
 	output.Println()
-	output.Print("  %s  %s\n", log.Cyan("Name:"), core.NameOf(mod))
+	output.Print("  %s  %s\n", log.Cyan("Name:"), sdk.NameOf(mod))
 	output.Print("  %s  %s\n", log.Cyan("Description:"), info.Description)
 	if info.Detail != "" {
 		output.Print("\n%s\n", info.Detail)
@@ -437,7 +437,7 @@ func (c *Console) showOptions(advanced bool) {
 	}
 
 	output.Println()
-	output.Print("  %s: %s\n", label, log.Cyan(core.NameOf(c.mod)))
+	output.Print("  %s: %s\n", label, log.Cyan(sdk.NameOf(c.mod)))
 	output.Println(divider)
 	output.Print("  %-20s  %-35s  %-8s  %s\n",
 		log.UnderlineText("Option"),
@@ -568,9 +568,9 @@ func (c *Console) cmdCheck() {
 		return
 	}
 
-	checker, ok := c.mod.(core.Checker)
+	checker, ok := c.mod.(sdk.Checker)
 	if !ok {
-		output.Warning("Module %s does not support check", core.NameOf(c.mod))
+		output.Warning("Module %s does not support check", sdk.NameOf(c.mod))
 		return
 	}
 
@@ -627,7 +627,7 @@ func (c *Console) cmdExploit() {
 		return
 	}
 
-	if checker, ok := c.mod.(core.Checker); ok {
+	if checker, ok := c.mod.(sdk.Checker); ok {
 		output.Status("Checking %s", target)
 		checkRun := c.buildModuleRun(params, "")
 		result, err := checker.Check(checkRun)
@@ -664,8 +664,8 @@ func (c *Console) cmdExploit() {
 
 // tryCmdStager attempts CmdStager delivery if both module and backend support it.
 // Returns true if it handled the exploit (success or failure), false to fall through.
-func (c *Console) tryCmdStager(target string, params core.Params, backend c2.Backend) bool {
-	stager, ok := c.mod.(core.CmdStager)
+func (c *Console) tryCmdStager(target string, params sdk.Params, backend c2.Backend) bool {
+	stager, ok := c.mod.(sdk.CmdStager)
 	if !ok {
 		return false
 	}
@@ -824,25 +824,25 @@ func (c *Console) sessionHandler() c2.SessionHandler {
 	return handler
 }
 
-func reliabilityStyle(rel core.Reliability) string {
+func reliabilityStyle(rel sdk.Reliability) string {
 	switch {
-	case rel >= core.Certain:
+	case rel >= sdk.Certain:
 		return log.Green(rel.String())
-	case rel >= core.VeryReliable:
+	case rel >= sdk.VeryReliable:
 		return log.Cyan(rel.String())
-	case rel >= core.Reliable:
+	case rel >= sdk.Reliable:
 		return log.Blue(rel.String())
-	case rel >= core.Typical:
+	case rel >= sdk.Typical:
 		return log.White(rel.String())
-	case rel >= core.Difficult:
+	case rel >= sdk.Difficult:
 		return log.Yellow(rel.String())
 	default:
 		return log.Red(rel.String())
 	}
 }
 
-func checkSupportStr(m core.Exploit) string {
-	if core.CanCheck(m) {
+func checkSupportStr(m sdk.Exploit) string {
+	if sdk.CanCheck(m) {
 		return log.Green("yes")
 	}
 	return log.Gray("no")
@@ -865,9 +865,9 @@ func (c *Console) warnSSLPort(changed string) {
 	}
 }
 
-// buildModuleRun creates a *core.Context from Params, wiring HTTP, logging, and payload helpers.
-func (c *Console) buildModuleRun(params core.Params, payloadCmd string) *core.Context {
-	run := core.NewContext(params.Map(), payloadCmd)
+// buildModuleRun creates a *sdk.Context from Params, wiring HTTP, logging, and payload helpers.
+func (c *Console) buildModuleRun(params sdk.Params, payloadCmd string) *sdk.Context {
+	run := sdk.NewContext(params.Map(), payloadCmd)
 	run.StatusFn = output.Status
 	run.SuccessFn = output.Success
 	run.ErrorFn = output.Error
@@ -877,7 +877,7 @@ func (c *Console) buildModuleRun(params core.Params, payloadCmd string) *core.Co
 	run.RandTextFn = text.RandText
 
 	httpRun := pikhttp.FromModule(params)
-	run.SendFn = func(req core.Request) (*core.Response, error) {
+	run.SendFn = func(req sdk.Request) (*sdk.Response, error) {
 		httpReq := pikhttp.Request{
 			Method:      req.Method,
 			Path:        req.Path,
@@ -892,7 +892,7 @@ func (c *Console) buildModuleRun(params core.Params, payloadCmd string) *core.Co
 		if err != nil {
 			return nil, err
 		}
-		modResp := &core.Response{
+		modResp := &sdk.Response{
 			StatusCode: resp.StatusCode,
 			Body:       resp.Body,
 		}
