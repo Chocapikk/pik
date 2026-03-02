@@ -91,6 +91,10 @@ func RunStandaloneWith(mod sdk.Exploit, runOpts sdk.RunOptions) {
 		})
 	}
 
+	if runOpts.Lab && sdk.GetLabManager() != nil {
+		cmd.AddCommand(labCmd())
+	}
+
 	if err := cmd.Execute(); err != nil {
 		output.Error("%v", err)
 		os.Exit(1)
