@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/session"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
@@ -20,7 +21,7 @@ type Listener struct {
 }
 
 // Payload generators indexed by PAYLOAD option value.
-var payloads = map[string]func(string, int) string{
+var payloads = c2.PayloadMap{
 	"reverse_bash":          payload.Bash,
 	"reverse_bash_min":      payload.BashMin,
 	"reverse_bash_fd":       payload.BashFD,
@@ -66,17 +67,11 @@ func (l *Listener) Setup(lhost string, lport int) error {
 // payloadType maps to the PAYLOAD option (e.g. "reverse_bash", "reverse_python").
 // Falls back to bash for linux, powershell for windows.
 func (l *Listener) GeneratePayload(targetOS, payloadType string) (string, error) {
-	if gen, ok := payloads[payloadType]; ok {
-		return gen(l.lhost, l.lport), nil
+	fallback := payload.Bash
+	if targetOS == "windows" {
+		fallback = payload.PowerShell
 	}
-
-	// Fallback by OS
-	switch targetOS {
-	case "windows":
-		return payload.PowerShell(l.lhost, l.lport), nil
-	default:
-		return payload.Bash(l.lhost, l.lport), nil
-	}
+	return c2.ResolvePayload(payloads, l.lhost, l.lport, payloadType, fallback)
 }
 
 // --- Session ---

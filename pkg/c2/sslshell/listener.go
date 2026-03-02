@@ -30,7 +30,7 @@ type Listener struct {
 	lport   int
 }
 
-var payloads = map[string]func(string, int) string{
+var payloads = c2.PayloadMap{
 	"reverse_bash_tls":   payload.BashTLS,
 	"reverse_python_tls": payload.PythonTLS,
 	"reverse_ncat_tls":   payload.NcatTLS,
@@ -62,11 +62,8 @@ func (l *Listener) Setup(lhost string, lport int) error {
 	return nil
 }
 
-func (l *Listener) GeneratePayload(targetOS, payloadType string) (string, error) {
-	if gen, ok := payloads[payloadType]; ok {
-		return gen(l.lhost, l.lport), nil
-	}
-	return payload.BashTLS(l.lhost, l.lport), nil
+func (l *Listener) GeneratePayload(_, payloadType string) (string, error) {
+	return c2.ResolvePayload(payloads, l.lhost, l.lport, payloadType, payload.BashTLS)
 }
 
 func (l *Listener) WaitForSession(timeout time.Duration) error {

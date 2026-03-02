@@ -97,7 +97,7 @@ type Listener struct {
 	closed   chan struct{}
 }
 
-var payloads = map[string]func(string, int) string{
+var payloads = c2.PayloadMap{
 	"reverse_curl_http":   payload.CurlHTTP,
 	"reverse_wget_http":   payload.WgetHTTP,
 	"reverse_php_http":    payload.PHPHTTP,
@@ -134,11 +134,8 @@ func (l *Listener) Setup(lhost string, lport int) error {
 	return nil
 }
 
-func (l *Listener) GeneratePayload(targetOS, payloadType string) (string, error) {
-	if gen, ok := payloads[payloadType]; ok {
-		return gen(l.lhost, l.lport), nil
-	}
-	return payload.CurlHTTP(l.lhost, l.lport), nil
+func (l *Listener) GeneratePayload(_, payloadType string) (string, error) {
+	return c2.ResolvePayload(payloads, l.lhost, l.lport, payloadType, payload.CurlHTTP)
 }
 
 func (l *Listener) WaitForSession(timeout time.Duration) error {
