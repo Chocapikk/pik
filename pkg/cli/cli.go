@@ -9,14 +9,19 @@ import (
 	"github.com/Chocapikk/pik/pkg/output"
 )
 
+// Version is set at build time via ldflags.
+var Version = "dev"
+
 // ConsoleFunc is set by cmd/pik to provide the console.
 var ConsoleFunc func() error
 
 // Run starts the full framework CLI.
 func Run() {
+	output.BannerVersion = Version
 	root := &cobra.Command{
-		Use:   "pik",
-		Short: "Pik exploitation framework",
+		Use:     "pik",
+		Short:   "Pik exploitation framework",
+		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			v, _ := cmd.Flags().GetBool("verbose")
 			d, _ := cmd.Flags().GetBool("debug")

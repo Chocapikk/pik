@@ -46,12 +46,19 @@ func Println(args ...any) {
 	fmt.Fprintln(os.Stderr, args...)
 }
 
+// BannerVersion is set by the CLI package at init time.
+var BannerVersion string
+
 func Banner() {
+	ver := BannerVersion
+	if ver == "" {
+		ver = "dev"
+	}
 	fmt.Fprintln(os.Stderr, log.Cyan(`
     ____  _ __
    / __ \(_) /__
   / /_/ / / //_/
  / ____/ / ,<
 /_/   /_/_/|_|
-`))
+`)+log.Gray("  v"+ver))
 }
