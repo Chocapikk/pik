@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/c2"
@@ -48,9 +49,12 @@ func (d *delivery) exploit(run *sdk.Context) error {
 // RunSingle checks and/or exploits a single target.
 func RunSingle(ctx context.Context, mod sdk.Exploit, params sdk.Params, opts RunOpts) error {
 	target := params.Target()
+	autocheck := !strings.EqualFold(params.GetOr("AUTOCHECK", "true"), "false")
 
-	if err := check(mod, params, target, opts.CheckOnly); err != nil {
-		return err
+	if autocheck || opts.CheckOnly {
+		if err := check(mod, params, target, opts.CheckOnly); err != nil {
+			return err
+		}
 	}
 	if opts.CheckOnly {
 		return nil

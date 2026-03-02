@@ -68,7 +68,7 @@ func readGoModModule(root string) (string, error) {
 
 // buildTargetHelp returns a long description listing available targets and options.
 func buildTargetHelp(mod sdk.Exploit) string {
-	lines := []string{mod.Info().Description}
+	lines := []string{mod.Info().Title()}
 
 	targets := mod.Info().Targets
 	if len(targets) > 0 {

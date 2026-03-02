@@ -63,6 +63,10 @@ var bannerLines = []string{
 	` █████`,
 }
 
+// BannerModuleCount and BannerPayloadCount are set by the console before Banner().
+var BannerModuleCount int
+var BannerPayloadCount int
+
 func Banner() {
 	ver := BannerVersion
 	if ver == "" {
@@ -80,16 +84,17 @@ func Banner() {
 		7:                          ver,
 		len(bannerLines) - 1: "github.com/Chocapikk/pik",
 	}
-
-	// Link stays close to line, not right-aligned.
-	linkIdx := len(bannerLines) - 1
+	// These lines use a small gap instead of right-aligning.
+	closeGapLines := map[int]bool{
+		len(bannerLines) - 1: true, // github link
+	}
 
 	fmt.Fprintln(os.Stderr)
 	for i, line := range bannerLines {
 		right := meta[i]
 		if right != "" {
 			var gap string
-			if i == linkIdx {
+			if closeGapLines[i] {
 				gap = "  "
 			} else {
 				gap = strings.Repeat(" ", maxWidth-len(line)+2)
@@ -100,4 +105,9 @@ func Banner() {
 		}
 	}
 	fmt.Fprintln(os.Stderr)
+	if BannerModuleCount > 0 {
+		fmt.Fprintf(os.Stderr, "  %s %s %s %s\n\n",
+			log.Amber(fmt.Sprintf("%d", BannerModuleCount)), log.White("exploits,"),
+			log.Amber(fmt.Sprintf("%d", BannerPayloadCount)), log.White("payloads"))
+	}
 }

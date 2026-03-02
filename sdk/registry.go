@@ -100,6 +100,7 @@ func Search(query string) []Exploit {
 	for _, e := range entries {
 		info := e.mod.Info()
 		if strings.Contains(strings.ToLower(e.name), q) ||
+			strings.Contains(strings.ToLower(info.Name), q) ||
 			strings.Contains(strings.ToLower(info.Description), q) ||
 			strings.Contains(strings.ToLower(strings.Join(info.CVEs(), " ")), q) {
 			result = append(result, e.mod)

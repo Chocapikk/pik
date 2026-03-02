@@ -30,7 +30,7 @@ func listCmd() *cobra.Command {
 				output.Print("  %s %s %s [%s]\n",
 					log.Pad(sdk.NameOf(mod), 20),
 					log.Pad(info.Reliability.String(), 12),
-					log.Pad(info.Description, 40),
+					log.Pad(info.Title(), 40),
 					cves,
 				)
 			}

@@ -35,9 +35,28 @@ func (r *Request) BodyReader() io.Reader {
 type Response struct {
 	StatusCode int
 	Body       io.ReadCloser
+	Headers    map[string]string
 	body       []byte
 	bodyRead   bool
 	containsFn func(...string) bool
+}
+
+// Header returns the value of a response header (case-insensitive).
+func (r *Response) Header(key string) string {
+	if r.Headers == nil {
+		return ""
+	}
+	// Try exact match first, then case-insensitive.
+	if val, ok := r.Headers[key]; ok {
+		return val
+	}
+	lower := strings.ToLower(key)
+	for k, v := range r.Headers {
+		if strings.ToLower(k) == lower {
+			return v
+		}
+	}
+	return ""
 }
 
 // SetContainsFn sets the function used by ContainsAny.

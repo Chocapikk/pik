@@ -3,11 +3,18 @@ package encode
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"unicode/utf16"
 )
+
+// JSON serializes a value to a JSON string.
+func JSON(v any) string {
+	data, _ := json.Marshal(v)
+	return string(data)
+}
 
 // Base64 encodes data to standard base64.
 func Base64(data []byte) string {

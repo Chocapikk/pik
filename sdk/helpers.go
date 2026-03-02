@@ -1,11 +1,12 @@
 package sdk
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
 )
+
+// --- fmt re-exports ---
 
 // Sprintf is fmt.Sprintf, re-exported so modules don't need to import fmt.
 func Sprintf(format string, args ...any) string {
@@ -17,10 +18,16 @@ func Errorf(format string, args ...any) error {
 	return fmt.Errorf(format, args...)
 }
 
-// JSONBody serializes a value to a JSON string for use in Request.Body.
-func JSONBody(v any) string {
-	data, _ := json.Marshal(v)
-	return string(data)
+// --- string helpers ---
+
+// Replace creates a string replacer and applies it.
+func Replace(s string, oldNew ...string) string {
+	return strings.NewReplacer(oldNew...).Replace(s)
+}
+
+// Contains checks if s contains substr.
+func Contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
 
 // Dedent strips the common leading whitespace from all non-empty lines.
