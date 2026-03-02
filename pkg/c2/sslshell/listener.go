@@ -31,10 +31,10 @@ type Listener struct {
 }
 
 var payloads = c2.PayloadMap{
-	"reverse_bash_tls":   payload.BashTLS,
-	"reverse_python_tls": payload.PythonTLS,
-	"reverse_ncat_tls":   payload.NcatTLS,
-	"reverse_socat_tls":  payload.SocatTLS,
+	"cmd/bash/reverse_tls":   payload.BashTLS,
+	"cmd/python/reverse_tls": payload.PythonTLS,
+	"cmd/ncat/reverse_tls":   payload.NcatTLS,
+	"cmd/socat/reverse_tls":  payload.SocatTLS,
 }
 
 func New() *Listener { return &Listener{} }

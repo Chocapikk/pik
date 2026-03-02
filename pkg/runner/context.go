@@ -29,16 +29,30 @@ func BuildContext(params sdk.Params, payloadCmd string) *sdk.Context {
 func httpBridge(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
 	run := pikhttp.FromModule(params)
 	return func(req sdk.Request) (*sdk.Response, error) {
+		timeout := time.Duration(req.Timeout) * time.Second
+		if req.FireAndForget && timeout == 0 {
+			timeout = 3 * time.Second
+		}
+
 		resp, err := run.Send(pikhttp.Request{
 			Method:      req.Method,
 			Path:        req.Path,
 			Query:       url.Values(req.Query),
 			Form:        url.Values(req.Form),
+			Body:        req.BodyReader(),
 			ContentType: req.ContentType,
 			Headers:     req.Headers,
-			Timeout:     time.Duration(req.Timeout) * time.Second,
+			Timeout:     timeout,
 			NoRedirect:  req.NoRedirect,
 		})
+
+		if req.FireAndForget {
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
+			return &sdk.Response{StatusCode: 0}, nil
+		}
+
 		if err != nil {
 			return nil, err
 		}

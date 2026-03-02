@@ -20,24 +20,30 @@ type Listener struct {
 	lport   int
 }
 
-// Payload generators indexed by PAYLOAD option value.
+// Payload generators indexed by registry name.
 var payloads = c2.PayloadMap{
-	"reverse_bash":          payload.Bash,
-	"reverse_bash_min":      payload.BashMin,
-	"reverse_bash_fd":       payload.BashFD,
-	"reverse_python":        payload.Python,
-	"reverse_python_pty":    payload.PythonPTY,
-	"reverse_perl":          payload.Perl,
-	"reverse_ruby":          payload.Ruby,
-	"reverse_php":           payload.PHP,
-	"reverse_netcat":        payload.Netcat,
-	"reverse_netcat_mkfifo": payload.NetcatMkfifo,
-	"reverse_powershell":    payload.PowerShell,
-	"reverse_socat":         payload.Socat,
-	"reverse_nodejs":        payload.NodeJS,
-	"reverse_awk":           payload.Awk,
-	"reverse_lua":           payload.Lua,
-	"reverse_java":          payload.Java,
+	"cmd/bash/reverse_tcp":         payload.Bash,
+	"cmd/bash/reverse_tcp_min":     payload.BashMin,
+	"cmd/bash/reverse_fd":          payload.BashFD,
+	"cmd/bash/reverse_readline":    payload.BashReadLine,
+	"cmd/python/reverse_tcp":       payload.Python,
+	"cmd/python/reverse_tcp_min":   payload.PythonMin,
+	"cmd/python/reverse_tcp_pty":   payload.PythonPTY,
+	"cmd/perl/reverse_tcp":         payload.Perl,
+	"cmd/ruby/reverse_tcp":         payload.Ruby,
+	"cmd/php/reverse_tcp":          payload.PHP,
+	"cmd/php/reverse_tcp_min":      payload.PHPMin,
+	"cmd/php/reverse_tcp_exec":     payload.PHPExec,
+	"cmd/netcat/reverse_tcp":       payload.Netcat,
+	"cmd/netcat/reverse_mkfifo":    payload.NetcatMkfifo,
+	"cmd/netcat/reverse_openbsd":   payload.NetcatOpenbsd,
+	"cmd/socat/reverse_tty":        payload.Socat,
+	"cmd/java/reverse_tcp":         payload.Java,
+	"cmd/nodejs/reverse_tcp":       payload.NodeJS,
+	"cmd/awk/reverse_tcp":          payload.Awk,
+	"cmd/lua/reverse_tcp":          payload.Lua,
+	"cmd/powershell/reverse_tcp":   payload.PowerShell,
+	"cmd/powershell/reverse_conpty": payload.PowerShellConPTY,
 }
 
 // --- Constructor ---
