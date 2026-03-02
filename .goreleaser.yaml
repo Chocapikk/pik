@@ -28,6 +28,7 @@ archives:
 
 signs:
   - cmd: minisign
+    signature: "${artifact}.minisig"
     args:
       - "-Sm"
       - "${artifact}"
