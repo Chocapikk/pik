@@ -11,5 +11,5 @@ func main() {
 	if len(mods) == 0 {
 		panic("no module registered")
 	}
-	sdk.Run(mods[0])
+	sdk.Run(mods[0], sdk.WithConsole())
 }
