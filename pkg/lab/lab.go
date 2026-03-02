@@ -3,11 +3,13 @@ package lab
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"sort"
 	"strings"
 	"time"
+
+	"encoding/json"
+	"io"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -133,8 +135,9 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 			if err != nil {
 				return fmt.Errorf("pull %s: %w", svc.Image, err)
 			}
-			io.Copy(io.Discard, reader)
-			reader.Close()
+			if err := showPullProgress(reader); err != nil {
+				return fmt.Errorf("pull %s: %w", svc.Image, err)
+			}
 
 			cfg, hostCfg := toDocker(svc, name)
 
@@ -349,6 +352,43 @@ func toDocker(svc sdk.Service, labName string) (*container.Config, *container.Ho
 	}
 
 	return cfg, hostCfg
+}
+
+// showPullProgress reads the Docker image pull JSON stream and prints
+// status updates. Drains the reader fully so the pull completes.
+func showPullProgress(reader io.ReadCloser) error {
+	defer reader.Close()
+
+	type pullMsg struct {
+		Status string `json:"status"`
+		ID     string `json:"id"`
+		Error  string `json:"error"`
+	}
+
+	dec := json.NewDecoder(reader)
+	var last string
+	for dec.More() {
+		var msg pullMsg
+		if err := dec.Decode(&msg); err != nil {
+			break
+		}
+		if msg.Error != "" {
+			return fmt.Errorf("%s", msg.Error)
+		}
+		// Only print meaningful status changes, not per-layer progress.
+		line := msg.Status
+		if msg.ID != "" {
+			line = msg.ID + ": " + msg.Status
+		}
+		if line != last && msg.Status != "" {
+			// Show final status lines (Pull complete, Digest, Status).
+			if msg.ID == "" || msg.Status == "Pull complete" || msg.Status == "Already exists" {
+				output.Status("%s", line)
+			}
+			last = line
+		}
+	}
+	return nil
 }
 
 func envSlice(m map[string]string) []string {
