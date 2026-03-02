@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Chocapikk/pik/pkg/console"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/runner"
 	"github.com/Chocapikk/pik/sdk"
@@ -78,6 +79,15 @@ func RunStandaloneWith(mod sdk.Exploit) {
 	if len(mod.Info().Targets) > 1 {
 		cmd.Flags().IntVar(&targetIdx, "exploit-target", 0, buildTargetFlag(mod))
 	}
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "console",
+		Short:             "Interactive console with module pre-loaded",
+		PersistentPreRun:  func(_ *cobra.Command, _ []string) {},
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return console.RunWith(mod)
+		},
+	})
 
 	if err := cmd.Execute(); err != nil {
 		output.Error("%v", err)

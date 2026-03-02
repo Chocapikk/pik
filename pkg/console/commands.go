@@ -7,16 +7,30 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
+	"github.com/Chocapikk/pik/sdk"
 )
 
-func (c *Console) cmdHelp() {
+// --- Help ---
+
+func (c *Console) cmdHelp(args []string) {
+	if len(args) > 0 {
+		name := strings.ToLower(args[0])
+		if cmd, ok := c.commands[name]; ok && cmd.help != "" {
+			output.Println()
+			output.Print("  %s\n", cmd.help)
+			output.Println()
+			return
+		}
+		output.Error("No help available for %q", args[0])
+		return
+	}
+
 	output.Println()
 	for _, name := range []string{
-		"use", "back", "show", "set", "unset", "target", "info",
+		"use", "back", "previous", "show", "set", "setg", "unset", "unsetg", "target", "info",
 		"check", "exploit", "sessions", "kill", "resource", "list", "search", "rank",
 	} {
 		cmd, ok := c.commands[name]
@@ -27,7 +41,11 @@ func (c *Console) cmdHelp() {
 	}
 	output.Print("  %s %s\n", log.Pad(log.Cyan("exit"), 20), log.Gray("Exit the console"))
 	output.Println()
+	output.Print("  %s %s\n", log.Gray("Aliases:"), log.Gray("run, rerun, rcheck, options, advanced, modules, ?"))
+	output.Println()
 }
+
+// --- Module listing ---
 
 func (c *Console) cmdList() {
 	c.printModuleTable(sdk.List())
@@ -113,6 +131,8 @@ func (c *Console) cmdRank() {
 	output.Println()
 }
 
+// --- Module selection ---
+
 func (c *Console) cmdUse(args []string) {
 	var name string
 
@@ -144,6 +164,12 @@ func (c *Console) cmdUse(args []string) {
 		return
 	}
 
+	// Save current module for `previous` command.
+	if c.mod != nil {
+		c.previousMod = c.mod
+		c.previousIdx = c.targetIdx
+	}
+
 	c.mod = mod
 	c.targetIdx = 0
 	c.initOptions()
@@ -152,10 +178,36 @@ func (c *Console) cmdUse(args []string) {
 }
 
 func (c *Console) cmdBack() {
+	if c.mod != nil {
+		c.previousMod = c.mod
+		c.previousIdx = c.targetIdx
+	}
 	c.mod = nil
 	c.options = nil
 	c.updatePrompt()
 }
+
+func (c *Console) cmdPrevious() {
+	if c.previousMod == nil {
+		output.Warning("No previous module")
+		return
+	}
+	prev := c.previousMod
+	prevIdx := c.previousIdx
+
+	if c.mod != nil {
+		c.previousMod = c.mod
+		c.previousIdx = c.targetIdx
+	}
+
+	c.mod = prev
+	c.targetIdx = prevIdx
+	c.initOptions()
+	c.updatePrompt()
+	output.Success("Using %s - %s", sdk.NameOf(prev), prev.Info().Description)
+}
+
+// --- Info ---
 
 func (c *Console) cmdInfo(args []string) {
 	mod := c.mod
@@ -196,53 +248,85 @@ func (c *Console) cmdInfo(args []string) {
 	output.Println()
 }
 
+// --- Show ---
+
 func (c *Console) cmdShow(args []string) {
 	if len(args) == 0 {
-		output.Error("Usage: show <options|payloads|modules>")
+		output.Error("Usage: show <options|advanced|missing|payloads|targets|modules|sessions|info>")
 		return
 	}
 
 	switch strings.ToLower(args[0]) {
 	case "options":
-		c.showOptions(false)
+		if c.mod == nil {
+			c.showGlobals()
+		} else {
+			c.showOptions(false)
+		}
 	case "advanced":
 		c.showOptions(true)
+	case "missing":
+		c.showMissing()
 	case "payloads":
 		c.showPayloads()
 	case "targets":
 		c.showTargets()
 	case "modules":
 		c.cmdList()
+	case "sessions":
+		c.cmdSessions(nil)
+	case "info":
+		c.cmdInfo(args[1:])
 	default:
-		output.Error("Unknown: show %s (try: options, advanced, payloads, targets, modules)", args[0])
+		output.Error("Unknown: show %s (try: options, advanced, missing, payloads, targets, modules, sessions)", args[0])
 	}
 }
 
+// --- Set / Setg ---
+
 func (c *Console) cmdSet(args []string) {
-	if c.mod == nil {
-		output.Error("No module selected")
+	if !c.requireMod() {
 		return
 	}
 
-	if len(args) < 2 {
-		output.Error("Usage: set <option> <value>")
+	// No args: dump all options.
+	if len(args) == 0 {
+		c.showOptions(false)
 		return
 	}
 
 	name := strings.ToUpper(args[0])
+
+	// One arg: print current value.
+	if len(args) == 1 {
+		if name == "PAYLOAD" {
+			c.selectPayload()
+			return
+		}
+		if c.hasOpt(name) {
+			val := c.getOpt(name)
+			if val == "" {
+				val = log.Muted("(not set)")
+			}
+			output.Print("  %s => %s\n", name, val)
+			return
+		}
+		c.suggestOption(name)
+		return
+	}
+
 	value := strings.Join(args[1:], " ")
 
-	if name == "PAYLOAD" && (value == "" || value == "?") {
+	if name == "PAYLOAD" && value == "?" {
 		c.selectPayload()
 		return
 	}
 
 	if !c.setOpt(name, value) {
-		output.Error("Unknown option: %s", name)
+		c.suggestOption(name)
 		return
 	}
 	output.Success("%s => %s", name, value)
-
 	c.warnSSLPort(name)
 }
 
@@ -259,9 +343,65 @@ func (c *Console) cmdUnset(args []string) {
 	output.Success("Unset %s", name)
 }
 
+func (c *Console) cmdSetg(args []string) {
+	// No args: dump globals.
+	if len(args) == 0 {
+		c.showGlobals()
+		return
+	}
+
+	if len(args) < 2 {
+		name := strings.ToUpper(args[0])
+		if val, ok := c.globals[name]; ok {
+			output.Print("  %s => %s\n", name, val)
+		} else {
+			output.Print("  %s => %s\n", name, log.Muted("(not set)"))
+		}
+		return
+	}
+
+	name := strings.ToUpper(args[0])
+	value := strings.Join(args[1:], " ")
+	c.globals[name] = value
+
+	// Also set on current module if loaded.
+	if c.mod != nil {
+		c.setOpt(name, value)
+	}
+	output.Success("%s => %s (global)", name, value)
+}
+
+func (c *Console) cmdUnsetg(args []string) {
+	if len(args) == 0 {
+		output.Error("Usage: unsetg <option>")
+		return
+	}
+	name := strings.ToUpper(args[0])
+	delete(c.globals, name)
+	output.Success("Unset global %s", name)
+}
+
+// suggestOption prints an error with a "did you mean?" hint.
+func (c *Console) suggestOption(name string) {
+	lower := strings.ToLower(name)
+	var closest string
+	for _, opt := range c.options {
+		if strings.Contains(strings.ToLower(opt.Name), lower) || strings.HasPrefix(strings.ToLower(opt.Name), lower[:min(3, len(lower))]) {
+			closest = opt.Name
+			break
+		}
+	}
+	if closest != "" {
+		output.Error("Unknown option: %s. Did you mean %s?", name, log.Cyan(closest))
+	} else {
+		output.Error("Unknown option: %s", name)
+	}
+}
+
+// --- Target ---
+
 func (c *Console) cmdTarget(args []string) {
-	if c.mod == nil {
-		output.Error("No module selected")
+	if !c.requireMod() {
 		return
 	}
 	if len(args) == 0 {
@@ -282,6 +422,8 @@ func (c *Console) cmdTarget(args []string) {
 	c.importTargetDefaults()
 	output.Success("Target => %d - %s", idx, targets[idx].Name)
 }
+
+// --- Resource ---
 
 func (c *Console) cmdResource(args []string) {
 	if len(args) == 0 {
@@ -304,6 +446,8 @@ func (c *Console) cmdResource(args []string) {
 		}
 	}
 }
+
+// --- Payload selector ---
 
 func (c *Console) selectPayload() {
 	platform := ""

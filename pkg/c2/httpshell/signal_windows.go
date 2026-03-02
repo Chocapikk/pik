@@ -2,7 +2,11 @@
 
 package httpshell
 
-import "os"
+import (
+	"os"
 
-func notifySuspend(_ chan<- os.Signal) {}
-func stopSuspend(_ chan<- os.Signal)   {}
+	"github.com/Chocapikk/pik/pkg/sigutil"
+)
+
+func notifySuspend(ch chan<- os.Signal) { sigutil.NotifySuspend(ch) }
+func stopSuspend(ch chan<- os.Signal)   { sigutil.StopSuspend(ch) }

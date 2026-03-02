@@ -18,8 +18,7 @@ var (
 )
 
 func (c *Console) showOptions(advanced bool) {
-	if c.mod == nil {
-		output.Error("No module selected")
+	if !c.requireMod() {
 		return
 	}
 
@@ -61,8 +60,7 @@ func (c *Console) showOptions(advanced bool) {
 }
 
 func (c *Console) showTargets() {
-	if c.mod == nil {
-		output.Error("No module selected")
+	if !c.requireMod() {
 		return
 	}
 
@@ -158,6 +156,61 @@ func checkSupportStr(m sdk.Exploit) string {
 		return log.Green("yes")
 	}
 	return log.Gray("no")
+}
+
+func (c *Console) showMissing() {
+	if !c.requireMod() {
+		return
+	}
+
+	var missing []option
+	for _, opt := range c.options {
+		if opt.Required && opt.Value == "" {
+			missing = append(missing, opt)
+		}
+	}
+
+	if len(missing) == 0 {
+		output.Success("All required options are set")
+		return
+	}
+
+	output.Println()
+	output.Print("  %s: %s\n", "Missing options", log.Cyan(sdk.NameOf(c.mod)))
+	output.Println(divider)
+	output.Print("  %s  %s\n",
+		log.Pad(log.UnderlineText("Option"), 18),
+		log.UnderlineText("Description"),
+	)
+	for _, opt := range missing {
+		output.Print("  %s  %s\n",
+			log.Pad(log.Red(opt.Name), 18),
+			log.Gray(opt.Desc),
+		)
+	}
+	output.Println()
+}
+
+func (c *Console) showGlobals() {
+	if len(c.globals) == 0 {
+		output.Warning("No global options set (use 'setg KEY VALUE')")
+		return
+	}
+
+	output.Println()
+	output.Print("  %s\n", "Global options")
+	output.Println(divider)
+	output.Print("  %s  %s\n",
+		log.Pad(log.UnderlineText("Option"), 18),
+		log.UnderlineText("Value"),
+	)
+	for name, val := range c.globals {
+		output.Print("  %s  %s\n",
+			log.Pad(log.Cyan(name), 18),
+			log.White(val),
+		)
+	}
+	output.Println()
 }
 
 func (c *Console) warnSSLPort(changed string) {

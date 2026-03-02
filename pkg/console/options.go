@@ -4,8 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Chocapikk/pik/sdk"
+	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 type option struct {
@@ -29,6 +30,11 @@ func (c *Console) initOptions() {
 			Desc:     opt.Desc,
 			Advanced: opt.Advanced,
 		})
+	}
+
+	// Overlay global options.
+	for name, val := range c.globals {
+		c.setOpt(name, val)
 	}
 
 	if c.hasOpt("PAYLOAD") && c.getOpt("PAYLOAD") == "" {
@@ -84,6 +90,25 @@ func (c *Console) setOpt(name, value string) bool {
 		}
 	}
 	return false
+}
+
+// requireMod checks that a module is selected. Returns false and prints an error if not.
+func (c *Console) requireMod() bool {
+	if c.mod == nil {
+		output.Error("No module selected")
+		return false
+	}
+	return true
+}
+
+// requireOpt checks that a required option is set. Returns the value and true, or prints an error and returns false.
+func (c *Console) requireOpt(name string) (string, bool) {
+	val := c.getOpt(name)
+	if val == "" {
+		output.Error("%s not set", name)
+		return "", false
+	}
+	return val, true
 }
 
 func (c *Console) buildParams() sdk.Params {
