@@ -87,11 +87,27 @@ func NewRun(ctx context.Context, target string, opts ...Option) *Run {
 	return &Run{Session: NewSession(opts...), Target: AutoScheme(target), TargetURI: "/", Ctx: ctx}
 }
 
+// WithProxy sets an HTTP/SOCKS5 proxy on the session transport.
+func WithProxy(proxyURL string) Option {
+	return func(s *Session) {
+		parsed, err := url.Parse(proxyURL)
+		if err != nil {
+			return
+		}
+		if t, ok := s.client.Transport.(*nethttp.Transport); ok {
+			t.Proxy = nethttp.ProxyURL(parsed)
+		}
+	}
+}
+
 // FromModule creates a Run from module params.
 func FromModule(params sdk.Params, opts ...Option) *Run {
 	ctx := params.Ctx
 	if t := poolTransport(ctx); t != nil {
 		opts = append([]Option{WithTransport(t)}, opts...)
+	}
+	if proxy := params.Get("PROXIES"); proxy != "" {
+		opts = append(opts, WithProxy(proxy))
 	}
 	run := NewRun(ctx, params.Target(), opts...)
 	run.TargetURI = params.GetOr("TARGETURI", "/")
@@ -103,14 +119,20 @@ func FromModule(params sdk.Params, opts ...Option) *Run {
 type transportKey struct{}
 
 // WithPool returns a context carrying a shared HTTP transport.
-func WithPool(ctx context.Context, threads int) context.Context {
-	return context.WithValue(ctx, transportKey{}, &nethttp.Transport{
+func WithPool(ctx context.Context, threads int, proxyURL string) context.Context {
+	transport := &nethttp.Transport{
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxIdleConns:        threads * 2,
 		MaxIdleConnsPerHost: threads,
 		MaxConnsPerHost:     threads,
 		IdleConnTimeout:     30 * time.Second,
-	})
+	}
+	if proxyURL != "" {
+		if parsed, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = nethttp.ProxyURL(parsed)
+		}
+	}
+	return context.WithValue(ctx, transportKey{}, transport)
 }
 
 func poolTransport(ctx context.Context) *nethttp.Transport {

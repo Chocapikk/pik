@@ -40,7 +40,7 @@ func (s *Scanner) Run(ctx context.Context) []Result {
 		return nil
 	}
 
-	ctx = pikhttp.WithPool(ctx, s.Threads)
+	ctx = pikhttp.WithPool(ctx, s.Threads, s.BaseParams.Get("PROXIES"))
 	total := int64(len(s.Targets))
 
 	results := make([]Result, total)
