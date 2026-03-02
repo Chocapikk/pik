@@ -14,7 +14,7 @@ func init() {
 
 func enrichBase(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	if !sdk.HasOpt(opts, "RPORT") {
-		opts = append(opts, sdk.OptAdvanced(sdk.OptPort("RPORT", 80, "Target port")))
+		opts = append(opts, sdk.OptPort("RPORT", 80, "Target port"))
 	}
 	return append(opts,
 		sdk.Option{Name: "LHOST", Type: sdk.TypeAddress, Required: true, Desc: "Callback host for payload"},
