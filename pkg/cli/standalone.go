@@ -28,11 +28,14 @@ func RunStandaloneWith(mod sdk.Exploit) {
 	var threads int
 	var checkOnly bool
 
-	flagVals := make(map[string]*string)
-	for _, opt := range mod.Options() {
+	opts := sdk.ResolveOptions(mod)
+	defaults := make(map[string]string, len(opts))
+	flagVals := make(map[string]*string, len(opts))
+	for _, opt := range opts {
 		val := new(string)
 		*val = opt.Default
 		flagVals[opt.Name] = val
+		defaults[opt.Name] = opt.Default
 	}
 
 	cmd := &cobra.Command{
@@ -52,7 +55,7 @@ func RunStandaloneWith(mod sdk.Exploit) {
 		},
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx := context.Background()
-			params := flagParams(flagVals, target)
+			params := flagParams(flagVals, defaults, target)
 
 			if file != "" {
 				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile}
@@ -75,8 +78,11 @@ func RunStandaloneWith(mod sdk.Exploit) {
 	cmd.Flags().BoolP("verbose", "v", false, "Verbose")
 	cmd.Flags().Bool("debug", false, "Debug")
 
-	for _, opt := range mod.Options() {
+	for _, opt := range sdk.ResolveOptions(mod) {
 		flagName := strings.ToLower(strings.ReplaceAll(opt.Name, "_", "-"))
+		if cmd.Flags().Lookup(flagName) != nil {
+			continue
+		}
 		cmd.Flags().StringVar(flagVals[opt.Name], flagName, opt.Default, opt.Desc)
 	}
 
