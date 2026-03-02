@@ -43,7 +43,6 @@ func enrichCmdStager(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 		return opts
 	}
 	return append(opts,
-		sdk.OptEnum("DELIVERY", "staging", "Delivery method", "staging", "cmdstager"),
 		sdk.OptEnum("CMDSTAGER", "printf", "CmdStager flavor", "printf", "bourne"),
 		sdk.OptInt("CMDSTAGER_LINEMAX", 2047, "Max command line length"),
 	)

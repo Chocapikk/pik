@@ -146,6 +146,7 @@ const (
 type Target struct {
 	Name           string
 	Platform       string
+	Type           string            // module-defined, e.g. "cmd", "dropper"
 	Arches         []string
 	DefaultOptions map[string]string // per-target option overrides
 }

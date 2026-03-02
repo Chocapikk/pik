@@ -42,14 +42,18 @@ func RunSingle(ctx context.Context, mod sdk.Exploit, params sdk.Params, opts Run
 	}
 	defer func() { _ = backend.Shutdown() }()
 
-	platform := mod.Info().Platform()
+	modTarget := resolveTarget(mod, params)
+	platform := modTarget.Platform
+	if platform == "" {
+		platform = mod.Info().Platform()
+	}
 	timeout := time.Duration(params.IntOr("WAITSESSION", 30)) * time.Second
 
-	if params.Get("DELIVERY") == "cmdstager" {
-		return deliverCmdStager(target, mod, backend, params, platform, timeout)
+	if modTarget.Type == "dropper" {
+		return deliverCmdStager(target, mod, modTarget, backend, params, platform, timeout)
 	}
 
-	return deliverPayload(target, mod, backend, params, platform, timeout)
+	return deliverPayload(target, mod, modTarget, backend, params, platform, timeout)
 }
 
 // --- Check ---
@@ -76,16 +80,33 @@ func check(mod sdk.Exploit, params sdk.Params, target string, required bool) err
 	return nil
 }
 
+// --- Target resolution ---
+
+func resolveTarget(mod sdk.Exploit, params sdk.Params) sdk.Target {
+	targets := mod.Info().Targets
+	if len(targets) == 0 {
+		return sdk.Target{Platform: mod.Info().Platform()}
+	}
+	idx := params.IntOr("TARGET", 0)
+	if idx < 0 || idx >= len(targets) {
+		idx = 0
+	}
+	return targets[idx]
+}
+
 // --- Delivery: direct payload ---
 
-func deliverPayload(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
+func deliverPayload(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	payloadCmd, err := resolvePayload(backend, params, platform)
 	if err != nil {
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
+	run := buildContext(params, payloadCmd)
+	run.SetTarget(modTarget)
+
 	output.Status("Exploiting %s", target)
-	if err := mod.Exploit(buildContext(params, payloadCmd)); err != nil {
+	if err := mod.Exploit(run); err != nil {
 		return fmt.Errorf("exploit failed: %w", err)
 	}
 
@@ -95,14 +116,14 @@ func deliverPayload(target string, mod sdk.Exploit, backend c2.Backend, params s
 
 // --- Delivery: cmdstager ---
 
-func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
+func deliverCmdStager(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	if _, ok := mod.(sdk.CmdStager); !ok {
 		return fmt.Errorf("module %s does not implement CmdStager", sdk.NameOf(mod))
 	}
 
 	fetch := params.GetOr("FETCH_COMMAND", "curl")
 	if fetch == "tcp" {
-		return deliverTCPStager(target, mod, backend, params, platform, timeout)
+		return deliverTCPStager(target, mod, modTarget, backend, params, platform, timeout)
 	}
 
 	payloadCmd, err := resolvePayload(backend, params, platform)
@@ -122,6 +143,7 @@ func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params
 
 	run := buildContext(params, "")
 	run.SetCommands(commands)
+	run.SetTarget(modTarget)
 
 	output.Status("Exploiting %s", target)
 	if err := mod.Exploit(run); err != nil {
@@ -132,7 +154,7 @@ func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params
 	return backend.WaitForSession(timeout)
 }
 
-func deliverTCPStager(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
+func deliverTCPStager(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	tcpBackend, ok := backend.(c2.TCPStager)
 	if !ok {
 		return fmt.Errorf("backend %q does not support TCP staging", backend.Name())
@@ -155,6 +177,7 @@ func deliverTCPStager(target string, mod sdk.Exploit, backend c2.Backend, params
 
 	run := buildContext(params, "")
 	run.SetCommands(commands)
+	run.SetTarget(modTarget)
 
 	output.Status("Exploiting %s", target)
 	if err := mod.Exploit(run); err != nil {
