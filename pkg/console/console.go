@@ -665,8 +665,7 @@ func (c *Console) cmdExploit() {
 // tryCmdStager attempts CmdStager delivery if both module and backend support it.
 // Returns true if it handled the exploit (success or failure), false to fall through.
 func (c *Console) tryCmdStager(target string, params sdk.Params, backend c2.Backend) bool {
-	stager, ok := c.mod.(sdk.CmdStager)
-	if !ok {
+	if _, ok := c.mod.(sdk.CmdStager); !ok {
 		return false
 	}
 	gen, ok := backend.(c2.ImplantGenerator)
@@ -706,7 +705,10 @@ func (c *Console) tryCmdStager(target string, params sdk.Params, backend c2.Back
 	)
 
 	stagerRun := c.buildModuleRun(params, "")
-	if err := stager.ExploitCmdStager(stagerRun, commands); err != nil {
+	stagerRun.SetCommands(commands)
+
+	output.Status("Exploiting %s", target)
+	if err := c.mod.Exploit(stagerRun); err != nil {
 		output.Error("Exploit failed: %v", err)
 		return true
 	}

@@ -96,14 +96,13 @@ func deliverPayload(target string, mod sdk.Exploit, backend c2.Backend, params s
 // --- Delivery: cmdstager ---
 
 func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
-	stager, ok := mod.(sdk.CmdStager)
-	if !ok {
-		return fmt.Errorf("module %s does not support cmdstager delivery", sdk.NameOf(mod))
+	if _, ok := mod.(sdk.CmdStager); !ok {
+		return fmt.Errorf("module %s does not implement CmdStager", sdk.NameOf(mod))
 	}
 
 	fetch := params.GetOr("FETCH_COMMAND", "curl")
 	if fetch == "tcp" {
-		return deliverTCPStager(target, stager, backend, params, platform, timeout)
+		return deliverTCPStager(target, mod, backend, params, platform, timeout)
 	}
 
 	payloadCmd, err := resolvePayload(backend, params, platform)
@@ -121,7 +120,11 @@ func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params
 		"Drop path", opts.tempPath,
 	)
 
-	if err := stager.ExploitCmdStager(buildContext(params, ""), commands); err != nil {
+	run := buildContext(params, "")
+	run.SetCommands(commands)
+
+	output.Status("Exploiting %s", target)
+	if err := mod.Exploit(run); err != nil {
 		return fmt.Errorf("exploit failed: %w", err)
 	}
 
@@ -129,7 +132,7 @@ func deliverCmdStager(target string, mod sdk.Exploit, backend c2.Backend, params
 	return backend.WaitForSession(timeout)
 }
 
-func deliverTCPStager(target string, mod sdk.CmdStager, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
+func deliverTCPStager(target string, mod sdk.Exploit, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
 	tcpBackend, ok := backend.(c2.TCPStager)
 	if !ok {
 		return fmt.Errorf("backend %q does not support TCP staging", backend.Name())
@@ -150,7 +153,11 @@ func deliverTCPStager(target string, mod sdk.CmdStager, backend c2.Backend, para
 		"Drop path", opts.tempPath,
 	)
 
-	if err := mod.ExploitCmdStager(buildContext(params, ""), commands); err != nil {
+	run := buildContext(params, "")
+	run.SetCommands(commands)
+
+	output.Status("Exploiting %s", target)
+	if err := mod.Exploit(run); err != nil {
 		return fmt.Errorf("exploit failed: %w", err)
 	}
 
