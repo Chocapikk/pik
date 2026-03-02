@@ -50,17 +50,6 @@ func defaultParams(mod sdk.Exploit) sdk.Params {
 	return newParams(values)
 }
 
-// flagParams creates Params from flag pointers and a target.
-func flagParams(flagVals map[string]*string, defaults map[string]string, target string) sdk.Params {
-	values := make(map[string]string)
-	values["TARGET"] = target
-	for name, val := range flagVals {
-		if *val != "" && *val != defaults[name] {
-			values[strings.ToUpper(name)] = *val
-		}
-	}
-	return newParams(values)
-}
 
 // readGoModModule reads the module path from a go.mod file.
 func readGoModModule(root string) (string, error) {

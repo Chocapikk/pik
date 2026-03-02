@@ -109,9 +109,32 @@ func FromModule(params sdk.Params, opts ...Option) *Run {
 	if proxy := params.Get("PROXIES"); proxy != "" {
 		opts = append(opts, WithProxy(proxy))
 	}
-	run := NewRun(ctx, params.Target(), opts...)
+	target := applyRPORT(params.Target(), params.Get("RPORT"))
+	run := NewRun(ctx, target, opts...)
 	run.TargetURI = params.GetOr("TARGETURI", "/")
 	return run
+}
+
+// applyRPORT appends the port to the target if RPORT is set and the target
+// doesn't already include a port.
+func applyRPORT(target, rport string) string {
+	if rport == "" || rport == "80" || rport == "443" {
+		return target
+	}
+	// If target already has a scheme, parse it properly.
+	if strings.Contains(target, "://") {
+		u, err := url.Parse(target)
+		if err != nil || u.Port() != "" {
+			return target
+		}
+		u.Host = u.Hostname() + ":" + rport
+		return u.String()
+	}
+	// Bare host - only add port if not already present.
+	if strings.Contains(target, ":") {
+		return target
+	}
+	return target + ":" + rport
 }
 
 // --- Connection pooling ---
