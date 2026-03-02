@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,9 +40,10 @@ type option struct {
 
 // Console is the interactive REPL.
 type Console struct {
-	rl      *readline.Instance
-	mod     core.Exploit
-	options []option
+	rl            *readline.Instance
+	mod           core.Exploit
+	options       []option
+	activeBackend c2.Backend
 }
 
 // Run starts the interactive console.
@@ -53,6 +55,7 @@ func Run() error {
 		return err
 	}
 	defer cons.rl.Close()
+	defer cons.shutdownBackend()
 
 	for {
 		line, err := cons.rl.Readline()
@@ -93,6 +96,10 @@ func Run() error {
 			cons.cmdCheck()
 		case "exploit", "run":
 			cons.cmdExploit()
+		case "sessions":
+			cons.cmdSessions(args)
+		case "kill":
+			cons.cmdKill(args)
 		case "rank":
 			cons.cmdRank()
 		default:
@@ -105,6 +112,7 @@ func (c *Console) initReadline() error {
 	commands := []string{
 		"use", "set", "unset", "show", "back", "info",
 		"check", "exploit", "run", "list", "modules",
+		"sessions", "kill",
 		"help", "exit", "quit",
 	}
 
@@ -245,6 +253,9 @@ func (c *Console) cmdHelp() {
 		{"info [module]", "Show module details"},
 		{"check", "Check if target is vulnerable"},
 		{"exploit / run", "Run the exploit"},
+		{"sessions", "List active sessions"},
+		{"sessions <id>", "Interact with a session"},
+		{"kill <id>", "Kill a session"},
 		{"list", "List all modules"},
 		{"rank", "Contributor leaderboard"},
 		{"exit / quit", "Exit the console"},
@@ -611,16 +622,10 @@ func (c *Console) cmdExploit() {
 	}
 	payloadCmd := selectedPayload.Generate(lhost, params.Lport())
 
-	backend := c.resolveC2()
+	backend := c.ensureBackend(lhost, params.Lport())
 	if backend == nil {
 		return
 	}
-
-	if err := backend.Setup(lhost, params.Lport()); err != nil {
-		output.Error("C2 setup failed: %v", err)
-		return
-	}
-	defer func() { _ = backend.Shutdown() }()
 
 	if checker, ok := c.mod.(core.Checker); ok {
 		output.Status("Checking %s", target)
@@ -712,6 +717,111 @@ func (c *Console) tryCmdStager(target string, params core.Params, backend c2.Bac
 		output.Error("No session received: %v", err)
 	}
 	return true
+}
+
+// ensureBackend returns the active backend, setting up a new one if needed.
+func (c *Console) ensureBackend(lhost string, lport int) c2.Backend {
+	if c.activeBackend != nil {
+		return c.activeBackend
+	}
+	backend := c.resolveC2()
+	if backend == nil {
+		return nil
+	}
+	if err := backend.Setup(lhost, lport); err != nil {
+		output.Error("C2 setup failed: %v", err)
+		return nil
+	}
+	c.activeBackend = backend
+	return backend
+}
+
+func (c *Console) cmdSessions(args []string) {
+	handler := c.sessionHandler()
+	if handler == nil {
+		output.Warning("No active listener with session support")
+		return
+	}
+
+	if len(args) > 0 {
+		id, ok := c.parseSessionID(args[0])
+		if !ok {
+			return
+		}
+		if err := handler.Interact(id); err != nil {
+			output.Error("%v", err)
+		}
+		return
+	}
+
+	sessions := handler.Sessions()
+	if len(sessions) == 0 {
+		output.Warning("No active sessions")
+		return
+	}
+
+	output.Println()
+	output.Print("  %-6s  %-25s  %s\n",
+		log.UnderlineText("ID"),
+		log.UnderlineText("Remote Address"),
+		log.UnderlineText("Opened"),
+	)
+	for _, sess := range sessions {
+		output.Print("  %-6s  %-25s  %s\n",
+			log.Cyan(strconv.Itoa(sess.ID)),
+			log.White(sess.RemoteAddr),
+			log.Gray(sess.CreatedAt.Format("15:04:05")),
+		)
+	}
+	output.Println()
+}
+
+func (c *Console) cmdKill(args []string) {
+	if len(args) == 0 {
+		output.Error("Usage: kill <session_id>")
+		return
+	}
+
+	handler := c.sessionHandler()
+	if handler == nil {
+		output.Warning("No active listener with session support")
+		return
+	}
+
+	id, ok := c.parseSessionID(args[0])
+	if !ok {
+		return
+	}
+	if err := handler.Kill(id); err != nil {
+		output.Error("%v", err)
+	}
+}
+
+func (c *Console) parseSessionID(raw string) (int, bool) {
+	id, err := strconv.Atoi(raw)
+	if err != nil {
+		output.Error("Invalid session ID: %s", raw)
+		return 0, false
+	}
+	return id, true
+}
+
+func (c *Console) shutdownBackend() {
+	if c.activeBackend != nil {
+		_ = c.activeBackend.Shutdown()
+		c.activeBackend = nil
+	}
+}
+
+func (c *Console) sessionHandler() c2.SessionHandler {
+	if c.activeBackend == nil {
+		return nil
+	}
+	handler, ok := c.activeBackend.(c2.SessionHandler)
+	if !ok {
+		return nil
+	}
+	return handler
 }
 
 func reliabilityStyle(rel core.Reliability) string {
