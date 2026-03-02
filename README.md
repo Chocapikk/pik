@@ -118,4 +118,4 @@ The standalone binary includes check, exploit, reverse shell listener, and all C
 
 ## License
 
-AGPL-3.0
+AGPL-3.0. Free to use for pentesting, research, CTFs, and internal security work. If you build a commercial product or service on top of pik, the AGPL requires you to open-source your entire codebase. Contact the author for commercial licensing.
