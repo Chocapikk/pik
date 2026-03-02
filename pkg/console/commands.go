@@ -143,6 +143,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		log.Pad(log.UnderlineText("Description"), descW),
 		log.UnderlineText("CVEs"),
 	)
+	globalIdx := 0
 	for _, dir := range groupOrder {
 		output.Print("  %s\n", log.Muted(dir+"/"))
 		for _, e := range groups[dir] {
@@ -158,8 +159,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			} else if len(cves) > 1 {
 				cveStr = fmt.Sprintf("%d CVEs", len(cves))
 			}
-			output.Print("  %s  %s  %s  %s  %s\n",
-				log.Pad(log.Muted(fmt.Sprintf("%d", e.idx)), 3),
+			output.Print("      %s  %s  %s  %s\n",
 				log.Pad(log.Cyan(e.shortName), nameW),
 				log.Pad(reliabilityStyle(info.Reliability), relW),
 				log.Pad(desc, descW),
@@ -180,10 +180,11 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				}
 				output.Print("      %s %s %s  %s\n",
 					log.Muted(branch),
-					log.Muted(fmt.Sprintf("%d", i)),
+					log.Cyan(fmt.Sprintf("%d", globalIdx)),
 					log.Gray(t.Type),
 					log.Gray(tName+arches),
 				)
+				globalIdx++
 			}
 		}
 	}
@@ -196,6 +197,24 @@ func splitModulePath(full string) (string, string) {
 		return "", full
 	}
 	return full[:idx], full[idx+1:]
+}
+
+// resolveGlobalIdx maps a flat target index to module + target index.
+func resolveGlobalIdx(idx int) (sdk.Exploit, int) {
+	counter := 0
+	for _, mod := range sdk.List() {
+		targets := mod.Info().Targets
+		if len(targets) == 0 {
+			targets = []sdk.Target{{}}
+		}
+		for i := range targets {
+			if counter == idx {
+				return mod, i
+			}
+			counter++
+		}
+	}
+	return nil, 0
 }
 
 func termWidth() int {
@@ -257,12 +276,23 @@ func (c *Console) cmdUse(args []string) {
 		name = selected
 	}
 
-	// Support numeric index from the module list.
+	// Support numeric index: resolves global target ID to module + target.
 	if idx, err := strconv.Atoi(name); err == nil {
-		modules := sdk.List()
-		if idx >= 0 && idx < len(modules) {
-			name = sdk.NameOf(modules[idx])
+		if mod, targetIdx := resolveGlobalIdx(idx); mod != nil {
+			if c.mod != nil {
+				c.previousMod = c.mod
+				c.previousIdx = c.targetIdx
+			}
+			c.mod = mod
+			c.targetIdx = targetIdx
+			c.initOptions()
+			c.importTargetDefaults()
+			c.updatePrompt()
+			output.Success("Using %s - %s [target %d]", sdk.NameOf(mod), mod.Info().Title(), targetIdx)
+			return
 		}
+		output.Error("Invalid index: %d", idx)
+		return
 	}
 
 	mod := sdk.Get(name)
