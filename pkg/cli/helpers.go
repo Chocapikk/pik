@@ -66,24 +66,42 @@ func readGoModModule(root string) (string, error) {
 	return "", fmt.Errorf("no module directive in go.mod")
 }
 
-// buildTargetHelp returns a long description listing available targets.
+// buildTargetHelp returns a long description listing available targets and options.
 func buildTargetHelp(mod sdk.Exploit) string {
+	lines := []string{mod.Info().Description}
+
 	targets := mod.Info().Targets
-	if len(targets) == 0 {
-		return mod.Info().Description
-	}
-	lines := []string{mod.Info().Description, "", "Targets:"}
-	for i, t := range targets {
-		name := t.Name
-		if name == "" {
-			name = t.Platform
+	if len(targets) > 0 {
+		lines = append(lines, "", "Targets:")
+		for i, t := range targets {
+			name := t.Name
+			if name == "" {
+				name = t.Platform
+			}
+			arches := strings.Join(t.Arches, ", ")
+			if arches == "" {
+				arches = "cmd"
+			}
+			lines = append(lines, fmt.Sprintf("  %d  %s (%s) [%s]", i, name, t.Type, arches))
 		}
-		arches := strings.Join(t.Arches, ", ")
-		if arches == "" {
-			arches = "cmd"
-		}
-		lines = append(lines, fmt.Sprintf("  %d  %s (%s) [%s]", i, name, t.Type, arches))
 	}
+
+	opts := sdk.ResolveOptions(mod)
+	if len(opts) > 0 {
+		lines = append(lines, "", "Options (-s KEY=VALUE):")
+		for _, opt := range opts {
+			req := ""
+			if opt.Required {
+				req = " (required)"
+			}
+			def := ""
+			if opt.Default != "" {
+				def = fmt.Sprintf(" [%s]", opt.Default)
+			}
+			lines = append(lines, fmt.Sprintf("  %-16s %s%s%s", opt.Name, opt.Desc, def, req))
+		}
+	}
+
 	return strings.Join(lines, "\n")
 }
 
