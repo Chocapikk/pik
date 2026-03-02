@@ -159,32 +159,46 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			} else if len(cves) > 1 {
 				cveStr = fmt.Sprintf("%d CVEs", len(cves))
 			}
-			output.Print("      %s  %s  %s  %s\n",
-				log.Pad(log.Cyan(e.shortName), nameW),
-				log.Pad(reliabilityStyle(info.Reliability), relW),
-				log.Pad(desc, descW),
-				log.Yellow(cveStr),
-			)
-			for i, t := range info.Targets {
-				branch := "├─"
-				if i == len(info.Targets)-1 {
-					branch = "└─"
-				}
-				tName := t.Name
-				if tName == "" {
-					tName = t.Platform
-				}
-				arches := ""
-				if len(t.Arches) > 0 {
-					arches = " (" + strings.Join(t.Arches, ", ") + ")"
-				}
-				output.Print("      %s %s %s  %s\n",
-					log.Muted(branch),
-					log.Cyan(fmt.Sprintf("%d", globalIdx)),
-					log.Gray(t.Type),
-					log.Gray(tName+arches),
+
+			if len(info.Targets) <= 1 {
+				// Single target or no target: ID on the module line.
+				output.Print("  %s  %s  %s  %s  %s\n",
+					log.Pad(log.Cyan(fmt.Sprintf("%d", globalIdx)), 3),
+					log.Pad(log.Cyan(e.shortName), nameW),
+					log.Pad(reliabilityStyle(info.Reliability), relW),
+					log.Pad(desc, descW),
+					log.Yellow(cveStr),
 				)
 				globalIdx++
+			} else {
+				// Multiple targets: IDs on the target tree lines.
+				output.Print("      %s  %s  %s  %s\n",
+					log.Pad(log.Cyan(e.shortName), nameW),
+					log.Pad(reliabilityStyle(info.Reliability), relW),
+					log.Pad(desc, descW),
+					log.Yellow(cveStr),
+				)
+				for i, t := range info.Targets {
+					branch := "├─"
+					if i == len(info.Targets)-1 {
+						branch = "└─"
+					}
+					tName := t.Name
+					if tName == "" {
+						tName = t.Platform
+					}
+					arches := ""
+					if len(t.Arches) > 0 {
+						arches = " (" + strings.Join(t.Arches, ", ") + ")"
+					}
+					output.Print("      %s %s %s  %s\n",
+						log.Muted(branch),
+						log.Cyan(fmt.Sprintf("%d", globalIdx)),
+						log.Gray(t.Type),
+						log.Gray(tName+arches),
+					)
+					globalIdx++
+				}
 			}
 		}
 	}
