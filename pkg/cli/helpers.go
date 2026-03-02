@@ -77,6 +77,41 @@ func readGoModModule(root string) (string, error) {
 	return "", fmt.Errorf("no module directive in go.mod")
 }
 
+// buildTargetHelp returns a long description listing available targets.
+func buildTargetHelp(mod sdk.Exploit) string {
+	targets := mod.Info().Targets
+	if len(targets) == 0 {
+		return mod.Info().Description
+	}
+	lines := []string{mod.Info().Description, "", "Targets:"}
+	for i, t := range targets {
+		name := t.Name
+		if name == "" {
+			name = t.Platform
+		}
+		arches := strings.Join(t.Arches, ", ")
+		if arches == "" {
+			arches = "cmd"
+		}
+		lines = append(lines, fmt.Sprintf("  %d  %s (%s) [%s]", i, name, t.Type, arches))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// buildTargetFlag returns a description for the --exploit-target flag.
+func buildTargetFlag(mod sdk.Exploit) string {
+	targets := mod.Info().Targets
+	names := make([]string, len(targets))
+	for i, t := range targets {
+		name := t.Name
+		if name == "" {
+			name = t.Type
+		}
+		names[i] = fmt.Sprintf("%d=%s", i, name)
+	}
+	return "Exploit target [" + strings.Join(names, ", ") + "]"
+}
+
 // readTargets reads a file of targets (one per line).
 func readTargets(path string) []string {
 	f, err := os.Open(path)
