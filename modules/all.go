@@ -9,5 +9,7 @@ import (
 	_ "github.com/Chocapikk/pik/modules/exploit/http/linux"
 
 	// C2 backends
+	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"
 	_ "github.com/Chocapikk/pik/pkg/c2/sliver"
+	_ "github.com/Chocapikk/pik/pkg/c2/sslshell"
 )
