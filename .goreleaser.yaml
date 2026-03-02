@@ -26,6 +26,24 @@ archives:
   - formats: binary
     name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+changelog:
+  sort: asc
+  groups:
+    - title: "New Features"
+      regexp: '^Feat:'
+    - title: "Bug Fixes"
+      regexp: '^Fix:'
+    - title: "Performance"
+      regexp: '^Perf:'
+    - title: "Refactoring"
+      regexp: '^Refactor:'
+    - title: "Documentation"
+      regexp: '^Docs:'
+    - title: "Tests"
+      regexp: '^Test:'
+    - title: "Other"
+      order: 999
+
 release:
   name_template: "Pik v{{ .Version }}"
   github:
