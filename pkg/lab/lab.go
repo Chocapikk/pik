@@ -332,6 +332,16 @@ func toDocker(svc sdk.Service, labName string) (*container.Config, *container.Ho
 		}
 	}
 
+	// Force localhost binding - labs are local, never expose to network.
+	for port, portBindings := range bindings {
+		for i := range portBindings {
+			if portBindings[i].HostIP == "" || portBindings[i].HostIP == "0.0.0.0" {
+				portBindings[i].HostIP = "127.0.0.1"
+			}
+		}
+		bindings[port] = portBindings
+	}
+
 	hostCfg := &container.HostConfig{
 		PortBindings:  bindings,
 		Binds:         svc.Volumes,
