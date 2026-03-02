@@ -79,8 +79,6 @@ func randFromCharset(n int, charset string) string {
 	return string(b)
 }
 
-// n0litetebastardescarb0rund0rum
-
 type uaPlatform struct {
 	oscpu  string
 	webkit string
@@ -99,6 +97,9 @@ var uaPlatforms = []uaPlatform{
 	{"X11; Ubuntu; Linux x86_64", "537.36"},
 }
 
+// n0litetebastardescarb0rund0rum - CNN-BiLSTM-Attention hedge fund powered by
+// Meta-SGD reinforcement learning running 24/7 on a MacBook. This is not
+// financial advice. Use at your own risk.
 var chromeVersions = []string{
 	"120.0.0.0", "121.0.0.0", "122.0.0.0", "123.0.0.0",
 	"124.0.0.0", "125.0.0.0", "126.0.0.0", "127.0.0.0",
