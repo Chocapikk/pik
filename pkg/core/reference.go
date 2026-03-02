@@ -1,0 +1,49 @@
+package core
+
+// RefType identifies the kind of reference.
+type RefType string
+
+const (
+	RefCVE         RefType = "CVE"
+	RefGHSA        RefType = "GHSA"
+	RefEDB         RefType = "EDB"
+	RefPacketstorm RefType = "PACKETSTORM"
+	RefURL         RefType = "URL"
+)
+
+// Reference is a vulnerability reference.
+type Reference struct {
+	Type RefType
+	ID   string
+}
+
+// URL returns the full URL for this reference.
+func (r Reference) URL() string {
+	switch r.Type {
+	case RefCVE:
+		return "https://nvd.nist.gov/vuln/detail/" + r.ID
+	case RefGHSA:
+		return "https://github.com/advisories/" + r.ID
+	case RefEDB:
+		return "https://www.exploit-db.com/exploits/" + r.ID
+	case RefPacketstorm:
+		return "https://packetstormsecurity.com/files/" + r.ID
+	case RefURL:
+		return r.ID
+	default:
+		return r.ID
+	}
+}
+
+func (r Reference) String() string {
+	if r.Type == RefURL {
+		return r.ID
+	}
+	return string(r.Type) + "-" + r.ID
+}
+
+func CVE(id string) Reference        { return Reference{Type: RefCVE, ID: "CVE-" + id} }
+func GHSA(id string) Reference       { return Reference{Type: RefGHSA, ID: "GHSA-" + id} }
+func EDB(id string) Reference        { return Reference{Type: RefEDB, ID: id} }
+func Packetstorm(id string) Reference { return Reference{Type: RefPacketstorm, ID: id} }
+func URL(u string) Reference         { return Reference{Type: RefURL, ID: u} }
