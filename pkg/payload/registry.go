@@ -55,6 +55,18 @@ func init() {
 	reg("cmd/socat/reverse_tty", "Socat TTY reverse shell", "linux", Socat)
 	reg("cmd/java/reverse_tcp", "Java Runtime reverse shell", "linux", Java)
 
+	// Linux - TLS
+	reg("cmd/bash/reverse_tls", "Bash openssl TLS reverse shell", "linux", BashTLS)
+	reg("cmd/python/reverse_tls", "Python3 TLS reverse shell", "linux", PythonTLS)
+	reg("cmd/ncat/reverse_tls", "Ncat TLS reverse shell", "linux", NcatTLS)
+	reg("cmd/socat/reverse_tls", "Socat TLS reverse shell", "linux", SocatTLS)
+
+	// Linux - HTTP
+	reg("cmd/curl/reverse_http", "Curl HTTP polling reverse shell", "linux", CurlHTTP)
+	reg("cmd/wget/reverse_http", "Wget HTTP polling reverse shell", "linux", WgetHTTP)
+	reg("cmd/php/reverse_http", "PHP HTTP polling reverse shell", "linux", PHPHTTP)
+	reg("cmd/python/reverse_http", "Python3 HTTP polling reverse shell", "linux", PythonHTTP)
+
 	// Windows
 	reg("cmd/powershell/reverse_tcp", "PowerShell reverse shell", "windows", PowerShell)
 	reg("cmd/powershell/reverse_conpty", "PowerShell ConPTY reverse shell", "windows", PowerShellConPTY)

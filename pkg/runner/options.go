@@ -25,7 +25,7 @@ func enrichC2(_ sdk.Exploit, opts []sdk.Option) []sdk.Option {
 		return opts
 	}
 	return append(opts,
-		sdk.OptEnum("C2", "shell", "C2 backend", "shell", "sliver"),
+		sdk.OptEnum("C2", "shell", "C2 backend", "shell", "sslshell", "httpshell", "sliver"),
 		sdk.OptString("C2CONFIG", "", "C2 config file (sliver)"),
 		sdk.OptAddress("SRVHOST", "", "Local bind address (default: LHOST)"),
 		sdk.OptPort("SRVPORT", 0, "Local bind port (default: LPORT)"),

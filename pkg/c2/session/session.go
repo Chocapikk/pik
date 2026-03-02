@@ -40,6 +40,13 @@ func (s *Session) Alive() bool {
 	return s.alive
 }
 
+// SetAlive sets the alive state. Used by backends that don't use net.Conn.
+func (s *Session) SetAlive(v bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.alive = v
+}
+
 // Close terminates the session.
 func (s *Session) Close() {
 	s.mu.Lock()
