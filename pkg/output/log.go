@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Chocapikk/pik/pkg/log"
 )
@@ -49,10 +50,54 @@ func Println(args ...any) {
 // BannerVersion is set by the CLI package at init time.
 var BannerVersion string
 
+var bannerLines = []string{
+	`           ███  █████`,
+	`           ▒▒▒  ▒▒███`,
+	` ████████  ████  ▒███ █████`,
+	`▒▒███▒▒███▒▒███  ▒███▒▒███`,
+	` ▒███ ▒███ ▒███  ▒██████▒`,
+	` ▒███ ▒███ ▒███  ▒███▒▒███`,
+	` ▒███████  █████ ████ █████`,
+	` ▒███▒▒▒   ▒▒▒▒▒ ▒▒▒▒ ▒▒▒▒▒`,
+	` ▒███`,
+	` █████`,
+}
+
 func Banner() {
 	ver := BannerVersion
 	if ver == "" {
 		ver = "dev"
 	}
-	fmt.Fprintf(os.Stderr, "\n  %s %s\n\n", log.Amber("pik"), log.Muted(ver))
+
+	maxWidth := 0
+	for _, line := range bannerLines {
+		if len(line) > maxWidth {
+			maxWidth = len(line)
+		}
+	}
+
+	meta := map[int]string{
+		7:                          ver,
+		len(bannerLines) - 1: "github.com/Chocapikk/pik",
+	}
+
+	// Link stays close to line, not right-aligned.
+	linkIdx := len(bannerLines) - 1
+
+	fmt.Fprintln(os.Stderr)
+	for i, line := range bannerLines {
+		right := meta[i]
+		if right != "" {
+			var gap string
+			if i == linkIdx {
+				gap = "  "
+			} else {
+				gap = strings.Repeat(" ", maxWidth-len(line)+2)
+			}
+			fmt.Fprintf(os.Stderr, "%s%s%s\n", log.Amber(line), gap, log.Muted(right))
+		} else {
+			fmt.Fprintln(os.Stderr, log.Amber(line))
+		}
+	}
+	fmt.Fprintln(os.Stderr)
 }
