@@ -153,6 +153,27 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				log.Pad(desc, descW),
 				log.Yellow(cveStr),
 			)
+			targets := info.Targets
+			for i, t := range targets {
+				branch := "├─"
+				if i == len(targets)-1 {
+					branch = "└─"
+				}
+				name := t.Name
+				if name == "" {
+					name = t.Platform
+				}
+				arches := ""
+				if len(t.Arches) > 0 {
+					arches = " (" + strings.Join(t.Arches, ", ") + ")"
+				}
+				output.Print("    %s %s %s%s\n",
+					log.Pad("", nameW-4),
+					log.Muted(branch),
+					log.Gray(t.Type),
+					log.Gray("  "+name+arches),
+				)
+			}
 		}
 	}
 	output.Println()
