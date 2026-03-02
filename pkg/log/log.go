@@ -15,9 +15,9 @@ const (
 	Dim       = "\x1b[2m"
 	Underline = "\x1b[4m"
 
-	// 256-color: amber/orange accent (#ff6b35)
-	FgAmber   = "\x1b[38;5;208m"
-	BoldAmber = "\x1b[1;38;5;208m"
+	// 256-color: amber accent (#fbbf24)
+	FgAmber   = "\x1b[38;5;214m"
+	BoldAmber = "\x1b[1;38;5;214m"
 
 	// Standard colors
 	BoldGreen   = "\x1b[1;32m"
