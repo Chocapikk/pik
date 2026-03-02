@@ -10,10 +10,17 @@ func (m *{{.StructName}}) Info() sdk.Info {
 		Detail:      sdk.Dedent(` + "`" + `
 			TODO: Describe the vulnerability and exploitation chain.
 		` + "`" + `),
-		Authors:     []string{"TODO"},
-		Reliability: sdk.Typical,
+		Authors:        []string{"TODO"},
+		DisclosureDate: "TODO",
+		Reliability:    sdk.Typical,
+		Stance:         sdk.Aggressive,
+		Notes: sdk.Notes{
+			Stability:   []string{sdk.CrashSafe},
+			SideEffects: []string{sdk.IOCInLogs},
+		},
 		References: []sdk.Reference{
 			// sdk.CVE("2026-XXXXX"),
+			// sdk.VulnCheck("advisory-slug"),
 		},
 		Queries: []sdk.Query{
 			// sdk.Shodan(` + "`" + `http.title:"{{.Name}}"` + "`" + `),
