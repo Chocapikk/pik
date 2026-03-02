@@ -36,7 +36,7 @@ func (c *Console) cmdHelp(args []string) {
 	output.Println()
 	for _, name := range []string{
 		"use", "back", "previous", "show", "set", "setg", "unset", "unsetg", "target", "info",
-		"check", "exploit", "lab", "sessions", "kill", "resource", "list", "search", "rank",
+		"check", "exploit", "lab", "sessions", "kill", "resource", "list", "search", "rank", "clear",
 	} {
 		cmd, ok := c.commands[name]
 		if !ok || cmd.desc == "" {
