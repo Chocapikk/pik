@@ -1,0 +1,68 @@
+linters:
+  enable:
+    # Bugs
+    - govet
+    - staticcheck
+    - errcheck
+    - bodyclose
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+
+    # Style
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - predeclared
+
+    # Complexity
+    - gocyclo
+    - funlen
+    - nestif
+
+    # Security
+    - gosec
+
+    # Performance
+    - prealloc
+    - ineffassign
+
+    # Dead code
+    - unused
+    - unparam
+
+linters-settings:
+  gocyclo:
+    min-complexity: 20
+  funlen:
+    lines: 120
+    statements: 60
+  nestif:
+    min-complexity: 6
+  gosec:
+    excludes:
+      - G402 # TLS InsecureSkipVerify - intentional for exploit framework
+      - G404 # weak random - used for non-crypto purposes
+      - G115 # int overflow on port cast - controlled input
+      - G306 # file perms 0755 - implant needs exec bit
+      - G112 # slowloris on staging server - short-lived internal use
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  errcheck:
+    exclude-functions:
+      # Terminal mode switches - no recovery possible
+      - (*github.com/chzyer/readline.Terminal).ExitRawMode
+      - (*github.com/chzyer/readline.Terminal).EnterRawMode
+      # Fire-and-forget I/O in shell relay
+      - io.Copy
+      # Deferred cleanup - nothing to do on error
+      - (*github.com/Chocapikk/pik/pkg/c2).Backend.Shutdown
+
+issues:
+  exclude-dirs:
+    - vendor
+  max-issues-per-linter: 0
+  max-same-issues: 0

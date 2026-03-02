@@ -1,0 +1,5 @@
+bin/
+pik
+*.exe
+*.test
+.DS_Store

