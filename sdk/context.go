@@ -10,6 +10,7 @@ import (
 type Context struct {
 	values    map[string]string
 	payload   string
+	commands  []string
 	startTime time.Time
 	timing    bool
 
@@ -42,6 +43,13 @@ func (c *Context) Send(req Request) (*Response, error) {
 
 func (c *Context) Get(key string) string { return c.values[key] }
 func (c *Context) Payload() string       { return c.payload }
+
+// Commands returns the CmdStager commands set by the runner.
+// Empty when in single-shot mode.
+func (c *Context) Commands() []string { return c.commands }
+
+// SetCommands is called by the runner to inject CmdStager commands.
+func (c *Context) SetCommands(cmds []string) { c.commands = cmds }
 
 // --- Logging ---
 
