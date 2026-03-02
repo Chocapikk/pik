@@ -1,6 +1,12 @@
 package sdk
 
-import "strings"
+import (
+	"strings"
+	"time"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
+)
 
 // --- Reliability ---
 
@@ -177,21 +183,105 @@ func (t Target) SupportsArch(arch string) bool {
 func TargetLinux(arches ...string) Target   { return Target{Platform: "linux", Arches: arches} }
 func TargetWindows(arches ...string) Target { return Target{Platform: "windows", Arches: arches} }
 
+// --- Lab ---
+
+// Lab declares an optional Docker lab environment for testing a module.
+type Lab struct {
+	Services []Service
+}
+
+// Service wraps Docker SDK types directly so pkg/lab passes them
+// straight to the Docker API with zero conversion.
+type Service struct {
+	Name       string // container name suffix (e.g. "web", "db")
+	Config     container.Config
+	HostConfig container.HostConfig
+}
+
+// NewLabService builds a Service for the common case: image + port bindings.
+// Chain Env(), Cmd(), and Volume() for additional configuration.
+func NewLabService(name, img string, ports ...string) Service {
+	exposed, bindings, _ := nat.ParsePortSpecs(ports)
+	return Service{
+		Name: name,
+		Config: container.Config{
+			Image:        img,
+			ExposedPorts: exposed,
+		},
+		HostConfig: container.HostConfig{
+			PortBindings:  bindings,
+			RestartPolicy: container.RestartPolicy{Name: "unless-stopped"},
+		},
+	}
+}
+
+// Env adds an environment variable to the service.
+func (s Service) Env(key, value string) Service {
+	s.Config.Env = append(s.Config.Env, key+"="+value)
+	return s
+}
+
+// Cmd overrides the container command.
+func (s Service) Cmd(args ...string) Service {
+	s.Config.Cmd = args
+	return s
+}
+
+// Volume adds a bind mount (host:container or named volume).
+func (s Service) Volume(bind string) Service {
+	s.HostConfig.Binds = append(s.HostConfig.Binds, bind)
+	return s
+}
+
+// Healthcheck sets a health check command with 5s interval and 30s start period.
+func (s Service) Healthcheck(cmd ...string) Service {
+	interval := 5 * time.Second
+	startPeriod := 30 * time.Second
+	s.Config.Healthcheck = &container.HealthConfig{
+		Test:        append([]string{"CMD-SHELL"}, cmd...),
+		Interval:    interval,
+		StartPeriod: startPeriod,
+	}
+	return s
+}
+
 // --- Info ---
 
 type Info struct {
-	Description    string
+	Name           string // Software name (e.g. "OpenDCIM", "Langflow", "Next.js")
+	Versions       string // Affected versions (e.g. "< 24.2", "1.0.0 - 1.2.9")
+	Description    string // Vulnerability title (e.g. "SQLi to RCE via Config Poisoning")
 	Detail         string
 	Authors        []string
 	DisclosureDate string // "2026-01-15"
 	Reliability    Reliability
 	Stance         Stance
-	Privileged     bool   // does exploitation yield privileged access?
+	Privileged     bool // does exploitation yield privileged access?
 	Notes          Notes
 	References     []Reference
 	Queries        []Query
 	Targets        []Target
 	DefaultOptions map[string]string
+	Lab            Lab
+}
+
+// Title returns the formatted module title: "Name Versions - Description".
+func (info Info) Title() string {
+	parts := []string{}
+	if info.Name != "" {
+		parts = append(parts, info.Name)
+	}
+	if info.Versions != "" {
+		parts = append(parts, info.Versions)
+	}
+	prefix := strings.Join(parts, " ")
+	if prefix != "" && info.Description != "" {
+		return prefix + " - " + info.Description
+	}
+	if prefix != "" {
+		return prefix
+	}
+	return info.Description
 }
 
 func (info Info) CVEs() []string {
