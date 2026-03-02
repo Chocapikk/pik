@@ -126,6 +126,12 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	}
 
 	output.Println()
+	output.Print("    %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("Name"), nameW),
+		log.Pad(log.UnderlineText("Reliability"), relW),
+		log.Pad(log.UnderlineText("Description"), descW),
+		log.UnderlineText("CVEs"),
+	)
 	for _, dir := range groupOrder {
 		output.Print("  %s\n", log.Muted(dir+"/"))
 		for _, e := range groups[dir] {
