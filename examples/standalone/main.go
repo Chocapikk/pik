@@ -33,12 +33,12 @@ func (m *MyExploit) Info() sdk.Info {
 func (m *MyExploit) Check(run *sdk.Context) (sdk.CheckResult, error) {
 	resp, err := run.Send(sdk.Request{Path: "vulnerable.php"})
 	if err != nil {
-		return sdk.CheckResult{Code: sdk.CheckUnknown}, err
+		return sdk.Unknown(err)
 	}
 	if resp.ContainsAny("vulnerable_marker") {
-		return sdk.CheckResult{Code: sdk.CheckVulnerable, Reason: "marker found"}, nil
+		return sdk.Vulnerable("marker found")
 	}
-	return sdk.CheckResult{Code: sdk.CheckSafe, Reason: "not vulnerable"}, nil
+	return sdk.Safe("not vulnerable")
 }
 
 func (m *MyExploit) Exploit(run *sdk.Context) error {
