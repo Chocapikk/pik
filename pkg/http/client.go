@@ -82,9 +82,9 @@ func NewSession(opts ...Option) *Session {
 	return s
 }
 
-// NewRun creates a Run with a fresh session.
+// NewRun creates a Run with a fresh session. Auto-detects scheme if missing.
 func NewRun(ctx context.Context, target string, opts ...Option) *Run {
-	return &Run{Session: NewSession(opts...), Target: target, TargetURI: "/", Ctx: ctx}
+	return &Run{Session: NewSession(opts...), Target: AutoScheme(target), TargetURI: "/", Ctx: ctx}
 }
 
 // FromModule creates a Run from module params.
@@ -194,6 +194,30 @@ func (r *Run) Send(req Request) (*Response, error) {
 	}
 	req.Path = NormalizeURI(r.TargetURI, req.Path)
 	return r.Session.Send(r.Target, req)
+}
+
+// --- Target helpers ---
+
+// AutoScheme probes HTTPS then falls back to HTTP if the target has no scheme.
+func AutoScheme(target string) string {
+	if strings.Contains(target, "://") {
+		return target
+	}
+
+	https := "https://" + target
+	client := &nethttp.Client{
+		Timeout:   3 * time.Second,
+		Transport: &nethttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		CheckRedirect: func(*nethttp.Request, []*nethttp.Request) error {
+			return nethttp.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get(https)
+	if err == nil {
+		resp.Body.Close()
+		return https
+	}
+	return "http://" + target
 }
 
 // --- URI helpers ---
