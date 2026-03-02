@@ -86,7 +86,7 @@ func resolveTarget(mod sdk.Exploit, params sdk.Params) sdk.Target {
 	if len(targets) == 0 {
 		return sdk.Target{Platform: mod.Info().Platform()}
 	}
-	idx := params.IntOr("TARGET", 0)
+	idx := params.IntOr("TARGET_INDEX", 0)
 	if idx < 0 || idx >= len(targets) {
 		idx = 0
 	}

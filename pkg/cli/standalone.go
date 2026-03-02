@@ -38,9 +38,12 @@ func RunStandaloneWith(mod sdk.Exploit) {
 		defaults[opt.Name] = opt.Default
 	}
 
+	var targetIdx int
+
 	cmd := &cobra.Command{
 		Use:           name,
 		Short:         mod.Info().Description,
+		Long:          buildTargetHelp(mod),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
@@ -56,6 +59,7 @@ func RunStandaloneWith(mod sdk.Exploit) {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx := context.Background()
 			params := flagParams(flagVals, defaults, target)
+			params.Set("TARGET_INDEX", fmt.Sprintf("%d", targetIdx))
 
 			if file != "" {
 				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile}
@@ -77,6 +81,9 @@ func RunStandaloneWith(mod sdk.Exploit) {
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only")
 	cmd.Flags().BoolP("verbose", "v", false, "Verbose")
 	cmd.Flags().Bool("debug", false, "Debug")
+	if len(mod.Info().Targets) > 1 {
+		cmd.Flags().IntVar(&targetIdx, "exploit-target", 0, buildTargetFlag(mod))
+	}
 
 	for _, opt := range sdk.ResolveOptions(mod) {
 		flagName := strings.ToLower(strings.ReplaceAll(opt.Name, "_", "-"))
