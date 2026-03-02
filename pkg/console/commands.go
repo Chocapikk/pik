@@ -111,6 +111,20 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		maxDescW = 20
 	}
 
+	// Compute description column width from actual data.
+	descW := 4
+	for _, entries := range groups {
+		for _, e := range entries {
+			desc := e.mod.Info().Title()
+			if len(desc) > maxDescW {
+				desc = desc[:maxDescW-3] + "..."
+			}
+			if w := len(desc); w > descW {
+				descW = w
+			}
+		}
+	}
+
 	output.Println()
 	for _, dir := range groupOrder {
 		output.Print("  %s\n", log.Muted(dir+"/"))
@@ -130,7 +144,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			output.Print("    %s  %s  %s  %s\n",
 				log.Pad(log.Cyan(e.shortName), nameW),
 				log.Pad(reliabilityStyle(info.Reliability), relW),
-				desc,
+				log.Pad(desc, descW),
 				log.Yellow(cveStr),
 			)
 		}
