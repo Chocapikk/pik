@@ -26,7 +26,7 @@ func RunStandaloneWith(mod sdk.Exploit) {
 
 	var target, file, outputFile string
 	var threads int
-	var checkOnly bool
+	var checkOnly, jsonOutput bool
 
 	opts := sdk.ResolveOptions(mod)
 	defaults := make(map[string]string, len(opts))
@@ -62,7 +62,7 @@ func RunStandaloneWith(mod sdk.Exploit) {
 			params.Set("TARGET_INDEX", fmt.Sprintf("%d", targetIdx))
 
 			if file != "" {
-				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile}
+				scan := &runner.Scanner{Module: mod, Targets: readTargets(file), Threads: threads, BaseParams: params, OutputFile: outputFile, JSONOutput: jsonOutput}
 				scan.Run(ctx)
 				return nil
 			}
@@ -79,6 +79,7 @@ func RunStandaloneWith(mod sdk.Exploit) {
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file")
 	cmd.Flags().IntVar(&threads, "threads", 10, "Threads")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "JSON output (with -o)")
 	cmd.Flags().BoolP("verbose", "v", false, "Verbose")
 	cmd.Flags().Bool("debug", false, "Debug")
 	if len(mod.Info().Targets) > 1 {

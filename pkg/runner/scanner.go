@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -16,9 +17,11 @@ import (
 
 // Result holds the outcome of scanning a single target.
 type Result struct {
-	Target     string
-	Vulnerable bool
-	Error      error
+	Target     string `json:"target"`
+	Vulnerable bool   `json:"vulnerable"`
+	Reason     string `json:"reason,omitempty"`
+	Error      error  `json:"-"`
+	ErrorStr   string `json:"error,omitempty"`
 }
 
 // Scanner runs vulnerability checks against multiple targets concurrently.
@@ -28,6 +31,7 @@ type Scanner struct {
 	Threads    int
 	BaseParams sdk.Params
 	OutputFile string
+	JSONOutput bool
 }
 
 // --- Scan execution ---
@@ -68,7 +72,11 @@ func (s *Scanner) Run(ctx context.Context) []Result {
 	s.logSummary(results, total)
 
 	if s.OutputFile != "" {
-		s.writeVulnerable(results)
+		if s.JSONOutput {
+			s.writeJSON(results)
+		} else {
+			s.writeVulnerable(results)
+		}
 	}
 
 	return results
@@ -84,11 +92,16 @@ func (s *Scanner) checkTarget(ctx context.Context, checker sdk.Checker, addr str
 	run := BuildContext(params, "")
 	check, err := checker.Check(run)
 
-	return Result{
+	r := Result{
 		Target:     addr,
 		Vulnerable: err == nil && check.Code.IsVulnerable(),
+		Reason:     check.Reason,
 		Error:      err,
 	}
+	if err != nil {
+		r.ErrorStr = err.Error()
+	}
+	return r
 }
 
 func (s *Scanner) logResult(r Result, cur, total int64) {
@@ -115,6 +128,21 @@ func (s *Scanner) logSummary(results []Result, total int64) {
 		}
 	}
 	output.Success("Scan complete: %d targets, %d vulnerable, %d errors", total, vuln, errs)
+}
+
+func (s *Scanner) writeJSON(results []Result) {
+	f, err := os.Create(s.OutputFile)
+	if err != nil {
+		output.Error("Failed to write %s: %v", s.OutputFile, err)
+		return
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	for _, r := range results {
+		enc.Encode(r)
+	}
+	output.Status("Wrote %d results (JSON) to %s", len(results), s.OutputFile)
 }
 
 func (s *Scanner) writeVulnerable(results []Result) {
