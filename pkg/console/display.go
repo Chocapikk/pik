@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	optEmpty = log.Gray("(not set)")
-	optReq   = log.Red("yes")
-	optNo    = log.Gray("no")
-	divider  = log.Gray(strings.Repeat("\u2500", 70))
+	optEmpty = log.Muted("-")
+	optReq   = log.Amber("yes")
+	optNo    = log.Muted("no")
+	divider  = log.Muted(strings.Repeat("\u2500", 70))
 )
 
 func (c *Console) showOptions(advanced bool) {
