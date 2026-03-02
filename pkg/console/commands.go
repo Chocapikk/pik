@@ -106,11 +106,9 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	}
 
 	relW := 11
-	cveColW := 14
-	fixedW := 4 + nameW + 2 + relW + 2 + 2 + cveColW
-	descW := termW - fixedW
-	if descW < 20 {
-		descW = 20
+	maxDescW := termW - (4 + nameW + 2 + relW + 2 + 2 + 14)
+	if maxDescW < 20 {
+		maxDescW = 20
 	}
 
 	output.Println()
@@ -119,8 +117,8 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		for _, e := range groups[dir] {
 			info := e.mod.Info()
 			desc := info.Title()
-			if len(desc) > descW {
-				desc = desc[:descW-3] + "..."
+			if len(desc) > maxDescW {
+				desc = desc[:maxDescW-3] + "..."
 			}
 			cves := info.CVEs()
 			cveStr := "-"
@@ -132,7 +130,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			output.Print("    %s  %s  %s  %s\n",
 				log.Pad(log.Cyan(e.shortName), nameW),
 				log.Pad(reliabilityStyle(info.Reliability), relW),
-				log.Pad(desc, descW),
+				desc,
 				log.Yellow(cveStr),
 			)
 		}
