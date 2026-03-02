@@ -111,6 +111,9 @@ func (c *Console) registerCommands() {
 
 		"lab": {func(a []string) { c.cmdLab(a) }, "Manage lab environments", "Usage: lab <start|stop|status|run>\n\nstart   Start the lab for the current module\nstop    Stop the lab for the current module\nstatus  List all running labs\nrun     Start lab, wait for ready, and exploit"},
 
+		"clear": {func(_ []string) { output.Print("\033[2J\033[H") }, "Clear the screen", ""},
+		"cls":   {func(_ []string) { output.Print("\033[2J\033[H") }, "", ""},
+
 		// Shortcuts
 		"options":  {func(_ []string) { c.cmdShow([]string{"options"}) }, "", ""},
 		"advanced": {func(_ []string) { c.cmdShow([]string{"advanced"}) }, "", ""},
