@@ -190,9 +190,16 @@ func extractTarGz(r io.Reader, dest string) error {
 
 // --- Scaffold ---
 
+// ScaffoldOpts configures standalone scaffold generation.
+type ScaffoldOpts struct {
+	ImportPath string // Go import path of the module package
+	ModRoot    string // Local repo root (empty = fetch from proxy)
+	Version    string // Module version tag (used when ModRoot is empty)
+}
+
 // Scaffold creates a temp directory with main.go and go.mod for a standalone build.
 // Returns the dir path and a cleanup function.
-func Scaffold(importPath, modRoot string) (string, func(), error) {
+func Scaffold(opts ScaffoldOpts) (string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "pik-build-*")
 	if err != nil {
 		return "", nil, err
@@ -200,14 +207,20 @@ func Scaffold(importPath, modRoot string) (string, func(), error) {
 	cleanup := func() { os.RemoveAll(tmpDir) }
 
 	if err := RenderToFile(filepath.Join(tmpDir, "main.go"), "standalone_main.go.tpl", map[string]string{
-		"ImportPath": importPath,
+		"ImportPath": opts.ImportPath,
 	}); err != nil {
 		cleanup()
 		return "", nil, err
 	}
 
+	version := opts.Version
+	if version == "" {
+		version = "v0.0.0"
+	}
+
 	if err := RenderToFile(filepath.Join(tmpDir, "go.mod"), "standalone_gomod.tpl", map[string]string{
-		"ModRoot": modRoot,
+		"ModRoot": opts.ModRoot,
+		"Version": version,
 	}); err != nil {
 		cleanup()
 		return "", nil, err

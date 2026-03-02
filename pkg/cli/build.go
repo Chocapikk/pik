@@ -7,10 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/toolchain"
+	"github.com/Chocapikk/pik/sdk"
 )
+
+const pikModule = "github.com/Chocapikk/pik"
 
 func buildCmd() *cobra.Command {
 	var outputPath, targetOS, targetArch string
@@ -39,19 +41,23 @@ func buildExploit(name, outputPath, targetOS, targetArch string) error {
 	}
 	absOutput, _ := filepath.Abs(outputPath)
 
-	modRoot, err := findModRoot()
-	if err != nil {
-		return err
-	}
+	importPath := pikModule + "/modules/" + filepath.Dir(fullName)
 
-	importPath, err := moduleImportPath(modRoot, fullName)
-	if err != nil {
-		return err
+	// Use local sources if inside the pik repo, otherwise fetch from proxy.
+	scaffoldOpts := toolchain.ScaffoldOpts{
+		ImportPath: importPath,
+		Version:    Version,
+	}
+	if modRoot, err := findModRoot(); err == nil {
+		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {
+			scaffoldOpts.ModRoot = modRoot
+			scaffoldOpts.Version = "v0.0.0" // replace overrides this
+		}
 	}
 
 	output.Status("Building standalone binary for %s", fullName)
 
-	srcDir, cleanup, err := toolchain.Scaffold(importPath, modRoot)
+	srcDir, cleanup, err := toolchain.Scaffold(scaffoldOpts)
 	if err != nil {
 		return err
 	}
@@ -65,14 +71,6 @@ func buildExploit(name, outputPath, targetOS, targetArch string) error {
 
 	output.Success("Built %s (%s)", absOutput, humanSize(absOutput))
 	return nil
-}
-
-func moduleImportPath(modRoot, fullName string) (string, error) {
-	goMod, err := readGoModModule(modRoot)
-	if err != nil {
-		return "", err
-	}
-	return goMod + "/modules/" + filepath.Dir(fullName), nil
 }
 
 func humanSize(path string) string {
