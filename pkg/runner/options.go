@@ -1,6 +1,9 @@
 package runner
 
-import "github.com/Chocapikk/pik/sdk"
+import (
+	"github.com/Chocapikk/pik/sdk"
+	"github.com/Chocapikk/pik/pkg/cmdstager"
+)
 
 func init() {
 	sdk.RegisterEnricher(enrichBase)
@@ -44,7 +47,7 @@ func enrichCmdStager(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	}
 	return append(opts,
 		sdk.OptAdvanced(sdk.OptEnum("CMDSTAGER", "printf", "CmdStager flavor", "printf", "bourne")),
-		sdk.OptAdvanced(sdk.OptInt("CMDSTAGER_LINEMAX", 2047, "Max command line length")),
+		sdk.OptAdvanced(sdk.OptInt("CMDSTAGER_LINEMAX", cmdstager.DefaultLineMax, "Max command line length")),
 	)
 }
 

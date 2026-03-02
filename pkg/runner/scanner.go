@@ -81,7 +81,7 @@ func (s *Scanner) checkTarget(ctx context.Context, checker sdk.Checker, addr str
 	params.Ctx = ctx
 	params.Set("TARGET", addr)
 
-	run := buildContext(params, "")
+	run := BuildContext(params, "")
 	check, err := checker.Check(run)
 
 	return Result{

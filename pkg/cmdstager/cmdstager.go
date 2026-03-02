@@ -6,9 +6,10 @@ import "fmt"
 type Flavor string
 
 const (
-	FlavorPrintf  Flavor = "printf"
-	FlavorBourne  Flavor = "bourne"
-	DefaultFlavor        = FlavorPrintf
+	FlavorPrintf   Flavor = "printf"
+	FlavorBourne   Flavor = "bourne"
+	DefaultFlavor         = FlavorPrintf
+	DefaultLineMax        = 2047
 )
 
 // Generate encodes a binary into shell commands using the specified flavor.
