@@ -50,6 +50,7 @@ type Console struct {
 	rl            *readline.Instance
 	mod           sdk.Exploit
 	options       []option
+	targetIdx     int
 	activeBackend c2.Backend
 	commands      map[string]command
 }
@@ -93,6 +94,7 @@ func (c *Console) registerCommands() {
 		"run":     {func(_ []string) { c.cmdExploit() }, ""},
 		"sessions": {func(a []string) { c.cmdSessions(a) }, "List or interact with sessions"},
 		"kill":     {func(a []string) { c.cmdKill(a) }, "Kill a session"},
+		"target":   {func(a []string) { c.cmdTarget(a) }, "Set exploit target (show targets to list)"},
 		"resource": {func(a []string) { c.cmdResource(a) }, "Run commands from a .rc file"},
 		"list":     {func(_ []string) { c.cmdList() }, "List all modules"},
 		"modules":  {func(_ []string) { c.cmdList() }, ""},
@@ -211,6 +213,19 @@ func (c *Console) initOptions() {
 			c.setOpt("PAYLOAD", defPayload.Name)
 		}
 	}
+
+	// Apply target-specific default options
+	c.importTargetDefaults()
+}
+
+func (c *Console) importTargetDefaults() {
+	targets := c.mod.Info().Targets
+	if c.targetIdx < 0 || c.targetIdx >= len(targets) {
+		return
+	}
+	for name, val := range targets[c.targetIdx].DefaultOptions {
+		c.setOpt(name, val)
+	}
 }
 
 func (c *Console) hasOpt(name string) bool {
@@ -257,8 +272,8 @@ func (c *Console) buildParams() sdk.Params {
 func (c *Console) cmdHelp() {
 	output.Println()
 	for _, name := range []string{
-		"use", "back", "show", "set", "unset", "info", "check",
-		"exploit", "sessions", "kill", "resource", "list", "rank",
+		"use", "back", "show", "set", "unset", "target", "info",
+		"check", "exploit", "sessions", "kill", "resource", "list", "rank",
 	} {
 		cmd, ok := c.commands[name]
 		if !ok || cmd.desc == "" {
@@ -420,10 +435,12 @@ func (c *Console) cmdShow(args []string) {
 		c.showOptions(true)
 	case "payloads":
 		c.showPayloads()
+	case "targets":
+		c.showTargets()
 	case "modules":
 		c.cmdList()
 	default:
-		output.Error("Unknown: show %s (try: options, advanced, payloads, modules)", args[0])
+		output.Error("Unknown: show %s (try: options, advanced, payloads, targets, modules)", args[0])
 	}
 }
 
@@ -465,6 +482,76 @@ func (c *Console) showOptions(advanced bool) {
 			log.Pad(displayVal, 30),
 			log.Pad(required, 8),
 			log.Gray(opt.Desc),
+		)
+	}
+	output.Println()
+}
+
+func (c *Console) cmdTarget(args []string) {
+	if c.mod == nil {
+		output.Error("No module selected")
+		return
+	}
+	if len(args) == 0 {
+		c.showTargets()
+		return
+	}
+	targets := c.mod.Info().Targets
+	if len(targets) == 0 {
+		output.Warning("Module has no targets defined")
+		return
+	}
+	idx, err := strconv.Atoi(args[0])
+	if err != nil || idx < 0 || idx >= len(targets) {
+		output.Error("Invalid target index (0-%d)", len(targets)-1)
+		return
+	}
+	c.targetIdx = idx
+	c.importTargetDefaults()
+	output.Success("Target => %d - %s", idx, targets[idx].Name)
+}
+
+func (c *Console) showTargets() {
+	if c.mod == nil {
+		output.Error("No module selected")
+		return
+	}
+
+	targets := c.mod.Info().Targets
+	if len(targets) == 0 {
+		output.Warning("No targets defined")
+		return
+	}
+
+	output.Println()
+	output.Print("  %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("ID"), 4),
+		log.Pad(log.UnderlineText("Name"), 30),
+		log.Pad(log.UnderlineText("Type"), 10),
+		log.UnderlineText("Arch"),
+	)
+	for i, t := range targets {
+		marker := "  "
+		idStr := log.Cyan(strconv.Itoa(i))
+		name := t.Name
+		if name == "" {
+			name = t.Platform
+		}
+		if i == c.targetIdx {
+			marker = log.Green("* ")
+			idStr = log.Green(strconv.Itoa(i))
+			name = log.Green(name)
+		}
+		arches := strings.Join(t.Arches, ", ")
+		if arches == "" {
+			arches = "cmd"
+		}
+		output.Print("%s%s  %s  %s  %s\n",
+			marker,
+			log.Pad(idStr, 4),
+			log.Pad(name, 30),
+			log.Pad(t.Type, 10),
+			log.Gray(arches),
 		)
 	}
 	output.Println()
@@ -518,6 +605,7 @@ func (c *Console) cmdSet(args []string) {
 		c.selectPayload()
 		return
 	}
+
 
 	if !c.setOpt(name, value) {
 		output.Error("Unknown option: %s", name)
@@ -892,8 +980,17 @@ func (c *Console) warnSSLPort(changed string) {
 }
 
 // buildModuleRun creates a *sdk.Context from Params, wiring HTTP, logging, and payload helpers.
+func (c *Console) activeTarget() sdk.Target {
+	targets := c.mod.Info().Targets
+	if c.targetIdx >= 0 && c.targetIdx < len(targets) {
+		return targets[c.targetIdx]
+	}
+	return sdk.Target{Platform: c.mod.Info().Platform()}
+}
+
 func (c *Console) buildModuleRun(params sdk.Params, payloadCmd string) *sdk.Context {
 	run := sdk.NewContext(params.Map(), payloadCmd)
+	run.SetTarget(c.activeTarget())
 	run.StatusFn = output.Status
 	run.SuccessFn = output.Success
 	run.ErrorFn = output.Error
