@@ -17,7 +17,7 @@ func (c *Console) cmdHelp() {
 	output.Println()
 	for _, name := range []string{
 		"use", "back", "show", "set", "unset", "target", "info",
-		"check", "exploit", "sessions", "kill", "resource", "list", "rank",
+		"check", "exploit", "sessions", "kill", "resource", "list", "search", "rank",
 	} {
 		cmd, ok := c.commands[name]
 		if !ok || cmd.desc == "" {
@@ -30,16 +30,47 @@ func (c *Console) cmdHelp() {
 }
 
 func (c *Console) cmdList() {
-	modules := sdk.List()
+	c.printModuleTable(sdk.List())
+}
+
+func (c *Console) cmdSearch(args []string) {
+	if len(args) == 0 {
+		output.Error("Usage: search <keyword>")
+		return
+	}
+	query := strings.Join(args, " ")
+	matches := sdk.Search(query)
+	if len(matches) == 0 {
+		output.Warning("No modules matching %q", query)
+		return
+	}
+	c.printModuleTable(matches)
+}
+
+func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	if len(modules) == 0 {
 		output.Warning("No modules loaded")
 		return
 	}
 	output.Println()
-	output.Print("  %-20s  %-10s  %-35s  %s\n",
-		log.UnderlineText("Name"),
-		log.UnderlineText("Reliability"),
-		log.UnderlineText("Description"),
+	nameW, relW, descW := 4, 11, 11
+	for _, mod := range modules {
+		info := mod.Info()
+		if w := len(sdk.NameOf(mod)); w > nameW {
+			nameW = w
+		}
+		if w := len(info.Reliability.String()); w > relW {
+			relW = w
+		}
+		if w := len(info.Description); w > descW {
+			descW = w
+		}
+	}
+
+	output.Print("  %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("Name"), nameW),
+		log.Pad(log.UnderlineText("Reliability"), relW),
+		log.Pad(log.UnderlineText("Description"), descW),
 		log.UnderlineText("CVEs"),
 	)
 	for _, mod := range modules {
@@ -48,10 +79,10 @@ func (c *Console) cmdList() {
 		if cves == "" {
 			cves = "-"
 		}
-		output.Print("  %-20s  %-10s  %-35s  %s\n",
-			log.Cyan(sdk.NameOf(mod)),
-			reliabilityStyle(info.Reliability),
-			info.Description,
+		output.Print("  %s  %s  %s  %s\n",
+			log.Pad(log.Cyan(sdk.NameOf(mod)), nameW),
+			log.Pad(reliabilityStyle(info.Reliability), relW),
+			log.Pad(info.Description, descW),
 			log.Yellow(cves),
 		)
 	}
@@ -65,17 +96,17 @@ func (c *Console) cmdRank() {
 		return
 	}
 	output.Println()
-	output.Print("  %-5s  %-20s  %-10s  %s\n",
-		log.UnderlineText("#"),
-		log.UnderlineText("Author"),
-		log.UnderlineText("Modules"),
+	output.Print("  %s  %s  %s  %s\n",
+		log.Pad(log.UnderlineText("#"), 5),
+		log.Pad(log.UnderlineText("Author"), 20),
+		log.Pad(log.UnderlineText("Modules"), 10),
 		log.UnderlineText("CVEs"),
 	)
 	for i, rank := range rankings {
-		output.Print("  %-5s  %-20s  %-10s  %s\n",
-			log.Cyan(fmt.Sprintf("%d", i+1)),
-			log.White(rank.Name),
-			log.Cyan(fmt.Sprintf("%d", rank.Modules)),
+		output.Print("  %s  %s  %s  %s\n",
+			log.Pad(log.Cyan(fmt.Sprintf("%d", i+1)), 5),
+			log.Pad(log.White(rank.Name), 20),
+			log.Pad(log.Cyan(fmt.Sprintf("%d", rank.Modules)), 10),
 			log.Yellow(fmt.Sprintf("%d", rank.CVEs)),
 		)
 	}
@@ -159,7 +190,7 @@ func (c *Console) cmdInfo(args []string) {
 		output.Println()
 		output.Print("  %s\n", log.Cyan("Queries:"))
 		for _, q := range info.Queries {
-			output.Print("    %-12s %s\n", log.Gray(q.Engine+":"), q.URL())
+			output.Print("    %s %s\n", log.Pad(log.Gray(q.Engine+":"), 12), q.URL())
 		}
 	}
 	output.Println()

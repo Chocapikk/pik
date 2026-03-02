@@ -91,6 +91,23 @@ func Names() []string {
 	return result
 }
 
+// Search returns exploits matching query against name, description, or CVEs.
+func Search(query string) []Exploit {
+	mu.RLock()
+	defer mu.RUnlock()
+	q := strings.ToLower(query)
+	var result []Exploit
+	for _, e := range entries {
+		info := e.mod.Info()
+		if strings.Contains(strings.ToLower(e.name), q) ||
+			strings.Contains(strings.ToLower(info.Description), q) ||
+			strings.Contains(strings.ToLower(strings.Join(info.CVEs(), " ")), q) {
+			result = append(result, e.mod)
+		}
+	}
+	return result
+}
+
 // callerModuleName derives the exploit path from the caller's file location.
 // skip=2 means: callerModuleName -> Register -> init().
 func callerModuleName(skip int) string {
