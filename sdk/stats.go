@@ -18,10 +18,11 @@ func Rankings() []AuthorRank {
 	for _, e := range entries {
 		info := e.mod.Info()
 		for _, author := range info.Authors {
-			rank, ok := stats[author]
+			key := author.String()
+			rank, ok := stats[key]
 			if !ok {
-				rank = &AuthorRank{Name: author}
-				stats[author] = rank
+				rank = &AuthorRank{Name: key}
+				stats[key] = rank
 			}
 			rank.Modules++
 			rank.CVEs += len(info.CVEs())

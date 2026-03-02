@@ -28,6 +28,17 @@ func Register(mod Exploit) {
 
 func register(mod Exploit, skip int) {
 	name := callerModuleName(skip)
+
+	// Enforce obfuscated email format at registration time.
+	// No raw email ever stays in the binary.
+	info := mod.Info()
+	for i := range info.Authors {
+		if info.Authors[i].Email != "" && !strings.Contains(info.Authors[i].Email, "[at]") {
+			panic(fmt.Sprintf("module %q: author %q has raw email %q - use <user[at]domain> format",
+				name, info.Authors[i].Name, info.Authors[i].Email))
+		}
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 	for _, e := range entries {

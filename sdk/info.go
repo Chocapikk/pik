@@ -229,6 +229,38 @@ func (s Service) WithHealthcheck(cmd string) Service {
 	return s
 }
 
+// --- Author ---
+
+// Author describes a module contributor.
+// Email is automatically formatted to <user[at]domain> for anti-scraping.
+type Author struct {
+	Name   string // real name or alias
+	Handle string // online handle (e.g. "Chocapikk")
+	Email  string // contact email (pass raw "user@domain", stored as "<user[at]domain>")
+}
+
+// ObfuscateEmail formats a raw email to <user[at]domain>.
+// Already obfuscated emails are returned as-is.
+func ObfuscateEmail(email string) string {
+	if email == "" || strings.Contains(email, "[at]") {
+		return email
+	}
+	email = strings.TrimPrefix(strings.TrimSuffix(email, ">"), "<")
+	return "<" + strings.Replace(email, "@", "[at]", 1) + ">"
+}
+
+func (a Author) String() string {
+	parts := a.Name
+	if a.Handle != "" && a.Handle != a.Name {
+		parts += " (" + a.Handle + ")"
+	}
+	if a.Email != "" {
+		parts += " " + ObfuscateEmail(a.Email)
+	}
+	return parts
+}
+
+
 // --- Info ---
 
 type Info struct {
@@ -236,7 +268,7 @@ type Info struct {
 	Versions       string // Affected versions (e.g. "< 24.2", "1.0.0 - 1.2.9")
 	Description    string // Vulnerability title (e.g. "SQLi to RCE via Config Poisoning")
 	Detail         string
-	Authors        []string
+	Authors        []Author
 	DisclosureDate string // "2026-01-15"
 	Reliability    Reliability
 	Stance         Stance
@@ -266,6 +298,14 @@ func (info Info) Title() string {
 		return prefix
 	}
 	return info.Description
+}
+
+func (info Info) AuthorNames() string {
+	names := make([]string, len(info.Authors))
+	for i, a := range info.Authors {
+		names[i] = a.String()
+	}
+	return strings.Join(names, ", ")
 }
 
 func (info Info) CVEs() []string {

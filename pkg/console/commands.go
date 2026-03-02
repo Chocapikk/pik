@@ -276,7 +276,7 @@ func (c *Console) cmdInfo(args []string) {
 	if info.Detail != "" {
 		output.Print("\n%s\n", info.Detail)
 	}
-	output.Print("  %s  %s\n", log.Cyan("Authors:"), strings.Join(info.Authors, ", "))
+	output.Print("  %s  %s\n", log.Cyan("Authors:"), info.AuthorNames())
 	output.Print("  %s  %s\n", log.Cyan("Reliability:"), reliabilityStyle(info.Reliability))
 	output.Print("  %s  %s\n", log.Cyan("Check:"), checkSupportStr(mod))
 	output.Print("  %s  %s\n", log.Cyan("CVEs:"), strings.Join(info.CVEs(), ", "))
