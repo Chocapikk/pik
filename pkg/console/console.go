@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	promptBase  = log.Cyan("pik")
-	promptArrow = log.Gray(" > ")
+	promptBase  = log.Amber("pik")
+	promptArrow = log.Muted(" > ")
 )
 
 type command struct {
@@ -152,7 +152,7 @@ func (c *Console) initReadline() error {
 
 func (c *Console) buildPrompt() string {
 	if c.mod != nil {
-		return promptBase + " " + log.Red(sdk.NameOf(c.mod)) + promptArrow
+		return promptBase + " " + log.White(sdk.NameOf(c.mod)) + promptArrow
 	}
 	return promptBase + promptArrow
 }

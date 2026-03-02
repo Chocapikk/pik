@@ -54,11 +54,5 @@ func Banner() {
 	if ver == "" {
 		ver = "dev"
 	}
-	fmt.Fprintln(os.Stderr, log.Cyan(`
-    ____  _ __
-   / __ \(_) /__
-  / /_/ / / //_/
- / ____/ / ,<
-/_/   /_/_/|_|
-`)+log.Gray("  v"+ver))
+	fmt.Fprintf(os.Stderr, "\n  %s %s\n\n", log.Amber("pik"), log.Muted(ver))
 }
