@@ -83,18 +83,23 @@ func (r CheckResult) FormatReason() string {
 	return ""
 }
 
-// Check result constructors for clean module code.
-func CheckOK(reason string, details ...string) (CheckResult, error) {
+// Check result constructors - match MSF's CheckCode::Vulnerable() style.
+func Vulnerable(reason string, details ...string) (CheckResult, error) {
 	return CheckResult{Code: CheckVulnerable, Reason: reason, Details: pairs(details)}, nil
 }
 
-func CheckFail(reason string) (CheckResult, error) {
+func Safe(reason string) (CheckResult, error) {
 	return CheckResult{Code: CheckSafe, Reason: reason}, nil
 }
 
-func CheckErr(err error) (CheckResult, error) {
+func Detected(reason string) (CheckResult, error) {
+	return CheckResult{Code: CheckDetected, Reason: reason}, nil
+}
+
+func Unknown(err error) (CheckResult, error) {
 	return CheckResult{Code: CheckUnknown}, err
 }
+
 
 func pairs(kv []string) map[string]string {
 	if len(kv) == 0 {

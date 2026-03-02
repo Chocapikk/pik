@@ -35,7 +35,7 @@ func (m *{{.StructName}}) Info() sdk.Info {
 
 func (m *{{.StructName}}) Check(run *sdk.Context) (sdk.CheckResult, error) {
 	// TODO: Implement vulnerability check
-	return sdk.CheckResult{Code: sdk.CheckUnknown, Reason: "not implemented"}, nil
+	return sdk.Unknown(nil)
 }
 
 func (m *{{.StructName}}) Exploit(run *sdk.Context) error {
