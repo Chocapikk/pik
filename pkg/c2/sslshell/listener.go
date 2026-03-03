@@ -16,6 +16,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/session"
 	"github.com/Chocapikk/pik/pkg/output"
+
 	"github.com/Chocapikk/pik/pkg/payload"
 )
 
@@ -25,9 +26,9 @@ func init() {
 
 // Listener is a TLS reverse shell listener.
 type Listener struct {
-	manager *session.Manager
-	lhost   string
-	lport   int
+	c2.SessionBase
+	lhost string
+	lport int
 }
 
 var payloads = c2.PayloadMap{
@@ -56,8 +57,8 @@ func (l *Listener) Setup(lhost string, lport int) error {
 		return fmt.Errorf("failed to start TLS listener: %w", err)
 	}
 
-	l.manager = session.NewManager(ln)
-	l.manager.Start()
+	l.Manager = session.NewManager(ln)
+	l.Manager.Start()
 	output.Status("TLS listening on %s:%d", lhost, lport)
 	return nil
 }
@@ -66,24 +67,7 @@ func (l *Listener) GeneratePayload(_, payloadType string) (string, error) {
 	return c2.ResolvePayload(payloads, l.lhost, l.lport, payloadType, payload.BashTLS)
 }
 
-func (l *Listener) WaitForSession(timeout time.Duration) error {
-	_, err := l.manager.Accept(timeout)
-	if err != nil {
-		return fmt.Errorf("no session received: %w", err)
-	}
-	return nil
-}
-
-func (l *Listener) Sessions() []*session.Session { return l.manager.List() }
-func (l *Listener) Interact(id int) error         { return l.manager.Interact(id) }
-func (l *Listener) Kill(id int) error              { return l.manager.Kill(id) }
-
-func (l *Listener) Shutdown() error {
-	if l.manager != nil {
-		l.manager.Close()
-	}
-	return nil
-}
+func (l *Listener) Shutdown() error { return l.ShutdownManager() }
 
 func selfSignedCert(host string) (tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

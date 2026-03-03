@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/sigutil"
 )
 
 // Session wraps a single reverse shell connection.
@@ -78,8 +79,8 @@ func (s *Session) Interact() {
 func (s *Session) interact() {
 	done := make(chan struct{})
 	bg := make(chan os.Signal, 1)
-	notifySuspend(bg)
-	defer stopSuspend(bg)
+	sigutil.NotifySuspend(bg)
+	defer sigutil.StopSuspend(bg)
 
 	// Use a pipe so we can stop the stdin copy goroutine
 	pr, pw := io.Pipe()

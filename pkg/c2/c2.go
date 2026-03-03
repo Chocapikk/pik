@@ -1,6 +1,7 @@
 package c2
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/c2/session"
@@ -41,6 +42,31 @@ type SessionHandler interface {
 	Sessions() []*session.Session
 	Interact(id int) error
 	Kill(id int) error
+}
+
+// SessionBase provides default SessionHandler methods by wrapping a session.Manager.
+// Embed in a listener to get Sessions, Interact, Kill, WaitForSession for free.
+type SessionBase struct {
+	Manager *session.Manager
+}
+
+func (b *SessionBase) WaitForSession(timeout time.Duration) error {
+	_, err := b.Manager.Accept(timeout)
+	if err != nil {
+		return fmt.Errorf("no session received: %w", err)
+	}
+	return nil
+}
+
+func (b *SessionBase) Sessions() []*session.Session { return b.Manager.List() }
+func (b *SessionBase) Interact(id int) error         { return b.Manager.Interact(id) }
+func (b *SessionBase) Kill(id int) error              { return b.Manager.Kill(id) }
+
+func (b *SessionBase) ShutdownManager() error {
+	if b.Manager != nil {
+		b.Manager.Close()
+	}
+	return nil
 }
 
 // PayloadMap is a map of payload names to generator functions.

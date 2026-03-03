@@ -14,6 +14,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/session"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/sigutil"
 	"github.com/Chocapikk/pik/pkg/payload"
 )
 
@@ -50,8 +51,8 @@ func (s *httpSession) interact() {
 	output.Status("Press Ctrl+Z to background session")
 
 	bg := make(chan os.Signal, 1)
-	notifySuspend(bg)
-	defer stopSuspend(bg)
+	sigutil.NotifySuspend(bg)
+	defer sigutil.StopSuspend(bg)
 
 	// Read output from implant and print.
 	done := make(chan struct{})
