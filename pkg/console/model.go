@@ -312,7 +312,7 @@ func (m consoleModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				optIdx := contentY - 3
 				maxIdx := m.visibleOptionCount() + len(m.actionButtons()) - 1
 				if optIdx >= 0 && optIdx <= maxIdx {
-					m.opts.cursor = optIdx
+					m.opts.table.SetCursor(optIdx)
 				}
 			}
 			return m, nil
@@ -549,7 +549,7 @@ func (m consoleModel) isAtTopOfTab() bool {
 	case tabBrowse:
 		return m.browser.Index() == 0
 	case tabConfig:
-		return m.opts.cursor == 0
+		return m.opts.table.Cursor() == 0
 	case tabSessions:
 		return m.sessionCursor == 0
 	}

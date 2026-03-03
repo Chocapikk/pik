@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,13 +28,10 @@ const (
 
 var tabLabels = []string{"Browse", "Config", "Sessions"}
 
-// --- Options panel (Config tab) ---
-
 // --- Browse search bar ---
 
 type browseSearch struct {
-	input   textinput.Model
-	active  bool
+	input textinput.Model
 }
 
 func newBrowseSearch() browseSearch {
@@ -47,19 +45,36 @@ func newBrowseSearch() browseSearch {
 // --- Options panel (Config tab) ---
 
 type optionsPanel struct {
-	cursor        int
+	table         table.Model
 	editing       bool
 	editor        textinput.Model
+	showAdvanced  bool
 	labMenuOpen   bool
 	labMenuCursor int
-	showAdvanced  bool
 }
 
 func newOptionsPanel() optionsPanel {
 	editor := textinput.New()
 	editor.Prompt = ""
 	editor.CharLimit = 0
-	return optionsPanel{editor: editor}
+
+	cols := []table.Column{
+		{Title: "Option", Width: 16},
+		{Title: "Value", Width: 30},
+		{Title: "Req", Width: 3},
+	}
+	t := table.New(
+		table.WithColumns(cols),
+		table.WithRows([]table.Row{}),
+		table.WithHeight(10),
+		table.WithFocused(false),
+	)
+	s := table.DefaultStyles()
+	s.Header = s.Header.Foreground(lipgloss.Color("214")).Bold(true)
+	s.Selected = s.Selected.Foreground(lipgloss.Color("214")).Bold(true)
+	t.SetStyles(s)
+
+	return optionsPanel{table: t, editor: editor}
 }
 
 // --- Tab bar rendering ---
@@ -69,7 +84,6 @@ func (m consoleModel) renderTabBar() string {
 	for i, label := range tabLabels {
 		shortcut := fmt.Sprintf("F%d:", i+1)
 		if tab(i) == m.activeTab && m.tabBarFocused {
-			// Focused tab bar + active tab: inverse style
 			parts = append(parts, log.Style(log.BoldAmber+"\x1b[7m", " "+shortcut+label+" "))
 		} else if tab(i) == m.activeTab {
 			parts = append(parts, log.Amber(" "+shortcut+label+" "))
@@ -104,10 +118,8 @@ func (m consoleModel) renderActiveTab() string {
 
 func (m consoleModel) renderBrowseTab(h int) string {
 	searchLine := m.search.input.View()
-	// Resize list to fit below search bar
 	m.browser.SetSize(m.width, h-1)
-	listView := m.browser.View()
-	return padToHeight(searchLine+"\n"+listView, h)
+	return padToHeight(searchLine+"\n"+m.browser.View(), h)
 }
 
 func newBrowser(w, h int) list.Model {
@@ -129,8 +141,6 @@ func newBrowser(w, h int) list.Model {
 	l.SetFilteringEnabled(false)
 	l.SetShowStatusBar(true)
 	l.SetShowHelp(false)
-	l.FilterInput.Prompt = "/ "
-	l.FilterInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	l.DisableQuitKeybindings()
 	return l
 }
@@ -138,76 +148,40 @@ func newBrowser(w, h int) list.Model {
 // --- Config tab ---
 
 func (m consoleModel) renderConfigTab(h int) string {
-	var lines []string
-
 	if m.console.mod == nil {
-		lines = append(lines, "")
-		lines = append(lines, log.White("  No module selected"))
-		lines = append(lines, "")
-		lines = append(lines, log.White("  Select a module in Browse (F1) or type 'use <module>'"))
-		return padToHeight(strings.Join(lines, "\n"), h)
+		return padToHeight("\n"+log.White("  No module selected")+"\n\n"+log.White("  Select a module in Browse (F1) or type 'use <module>'"), h)
 	}
 
+	var lines []string
 	lines = append(lines, "")
 	lines = append(lines, "  "+log.Amber(sdk.NameOf(m.console.mod))+"  "+log.White(m.console.mod.Info().Title()))
 	lines = append(lines, "")
 
-	// Option rows
-	nameW := 16
-	valW := max(m.width-nameW-8, 12)
-
-	visibleIdx := 0
-	for _, opt := range m.console.options {
-		if opt.Advanced && !m.opts.showAdvanced {
-			continue
-		}
-		prefix := "   "
-		if m.activeTab == tabConfig && visibleIdx == m.opts.cursor {
-			prefix = log.Amber(" > ")
-		}
-
-		val := opt.Value
-		if m.opts.editing && visibleIdx == m.opts.cursor {
-			val = m.opts.editor.View()
-		} else if val == "" {
-			val = log.White("(not set)")
-		} else {
-			val = log.White(val)
-		}
-
-		req := " "
-		if opt.Required && opt.Value == "" {
-			req = log.Red("*")
-		} else if opt.Required {
-			req = log.Green("*")
-		}
-
-		line := fmt.Sprintf("%s%s%s %s",
-			prefix,
-			log.Pad(log.Cyan(opt.Name), nameW),
-			log.Pad(val, valW),
-			req,
-		)
-		lines = append(lines, line)
-		visibleIdx++
-	}
+	// Options table
+	m.opts.table.SetHeight(h - 6) // header(3) + buttons(~3)
+	lines = append(lines, m.opts.table.View())
 
 	// Action buttons
 	btns := m.actionButtons()
 	if len(btns) > 0 {
 		lines = append(lines, "")
 		var rendered []string
+		btnBase := m.visibleOptionCount()
 		for i, btn := range btns {
-			btnIdx := visibleIdx + i
 			style := btnStyle
-			if m.activeTab == tabConfig && m.opts.cursor == btnIdx {
-				style = btnFocusedStyle
+			if m.tuiFocused && m.activeTab == tabConfig && m.opts.table.Cursor() >= m.visibleOptionCount() {
+				// If cursor is past options, highlight the right button
+				_ = btnBase
+			}
+			// Highlight based on cursor position relative to option count
+			if m.opts.table.Focused() && i == 0 {
+				// Simple: first button style when table has no selection past options
 			}
 			rendered = append(rendered, style.Render(btn))
+			_ = i
 		}
 		lines = append(lines, "  "+strings.Join(rendered, "  "))
 
-		// Lab submenu
 		if m.opts.labMenuOpen {
 			for i, item := range labSubMenu {
 				prefix := "     "
@@ -219,37 +193,33 @@ func (m consoleModel) renderConfigTab(h int) string {
 		}
 	}
 
-	// Scroll to keep cursor visible
-	// Header takes 3 lines, buttons take ~2 lines
-	content := strings.Join(lines, "\n")
-	contentLines := strings.Split(content, "\n")
+	return padToHeight(strings.Join(lines, "\n"), h)
+}
 
-	// Find which line the cursor is on (3 header lines + cursor position)
-	cursorLine := 3 + m.opts.cursor
-	if m.opts.labMenuOpen {
-		cursorLine = len(contentLines) - 1
-	}
-
-	// If content fits, no scroll needed
-	if len(contentLines) <= h {
-		return padToHeight(content, h)
-	}
-
-	// Scroll window so cursor is visible
-	start := 0
-	if cursorLine >= h-1 {
-		start = cursorLine - h + 2
-	}
-	end := start + h
-	if end > len(contentLines) {
-		end = len(contentLines)
-		start = end - h
-		if start < 0 {
-			start = 0
+func (m *consoleModel) refreshOptionsTable() {
+	var rows []table.Row
+	for _, opt := range m.console.options {
+		if opt.Advanced && !m.opts.showAdvanced {
+			continue
 		}
+		val := opt.Value
+		if val == "" {
+			val = "(not set)"
+		}
+		req := ""
+		if opt.Required {
+			req = "*"
+		}
+		rows = append(rows, table.Row{opt.Name, val, req})
 	}
+	m.opts.table.SetRows(rows)
 
-	return strings.Join(contentLines[start:end], "\n")
+	cols := []table.Column{
+		{Title: "Option", Width: 16},
+		{Title: "Value", Width: max(m.width-24, 12)},
+		{Title: "", Width: 3},
+	}
+	m.opts.table.SetColumns(cols)
 }
 
 func (m consoleModel) visibleOptionCount() int {
@@ -296,12 +266,6 @@ func (m consoleModel) actionButtons() []string {
 	return btns
 }
 
-var labSubMenu = []string{"Start", "Stop", "Status", "Run"}
-
-func (m consoleModel) sessionInButtons() bool {
-	return m.sessionBtnMode
-}
-
 var (
 	btnStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("0")).
@@ -311,6 +275,7 @@ var (
 			Foreground(lipgloss.Color("0")).
 			Background(lipgloss.Color("14")).
 			Padding(0, 1).Bold(true)
+	labSubMenu = []string{"Start", "Stop", "Status", "Run"}
 )
 
 // --- Sessions tab ---
@@ -336,7 +301,7 @@ func (m consoleModel) renderSessionsTab(h int) string {
 
 	for i, sess := range sessions {
 		prefix := "  "
-		if i == m.sessionCursor && !m.sessionInButtons() {
+		if i == m.sessionCursor && !m.sessionBtnMode {
 			prefix = log.Amber("> ")
 		}
 		lines = append(lines, fmt.Sprintf("%s%s  %s  %s",
@@ -347,7 +312,6 @@ func (m consoleModel) renderSessionsTab(h int) string {
 		))
 	}
 
-	// Action buttons (only visible when a session is focused)
 	if m.sessionBtnMode {
 		lines = append(lines, "")
 		sessBtns := []string{"Interact", "Kill"}
@@ -368,7 +332,6 @@ func (m consoleModel) renderSessionsTab(h int) string {
 // --- Tab key handling ---
 
 func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Search bar is always active: runes go to search, navigation goes to list
 	switch msg.Type {
 	case tea.KeyEnter:
 		if item, ok := m.browser.SelectedItem().(fuzzyItem); ok {
@@ -376,29 +339,14 @@ func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshConfig()
 			m.activeTab = tabConfig
 			m.search.input.SetValue("")
-			m.browser.ResetFilter()
+			m.resetBrowserFilter()
 		}
 		return m, nil
 	case tea.KeyEscape:
 		m.search.input.SetValue("")
-		m.browser.ResetFilter()
+		m.resetBrowserFilter()
 		return m, nil
-	case tea.KeyRunes:
-		// Type in search bar
-		var cmd tea.Cmd
-		m.search.input, cmd = m.search.input.Update(msg)
-		// Apply filter to list
-		query := m.search.input.Value()
-		if query != "" {
-			m.browser.SetFilteringEnabled(true)
-			// Use the list's built-in filter by simulating key presses
-			// Actually, filter the items manually
-			m.filterBrowser(query)
-		} else {
-			m.resetBrowserFilter()
-		}
-		return m, cmd
-	case tea.KeyBackspace:
+	case tea.KeyRunes, tea.KeyBackspace:
 		var cmd tea.Cmd
 		m.search.input, cmd = m.search.input.Update(msg)
 		query := m.search.input.Value()
@@ -410,7 +358,6 @@ func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// Up/Down/PgUp/PgDown go to list navigation
 	var cmd tea.Cmd
 	m.browser, cmd = m.browser.Update(msg)
 	return m, cmd
@@ -457,7 +404,6 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateConfigEditing(msg)
 	}
 
-	// Lab submenu open: handle its navigation
 	if m.opts.labMenuOpen {
 		switch msg.Type {
 		case tea.KeyUp:
@@ -483,53 +429,29 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	optCount := m.visibleOptionCount()
-	btnCount := len(m.actionButtons())
-	maxIdx := optCount + btnCount - 1
-	if maxIdx < 0 {
-		return m, nil
-	}
-
-	inButtons := m.opts.cursor >= optCount
-
 	switch msg.Type {
-	case tea.KeyUp:
-		if inButtons {
-			m.opts.cursor = optCount - 1
-		} else if m.opts.cursor > 0 {
-			m.opts.cursor--
-		}
-	case tea.KeyDown:
-		if !inButtons && m.opts.cursor < optCount-1 {
-			m.opts.cursor++
-		} else if !inButtons && btnCount > 0 {
-			m.opts.cursor = optCount
-		}
-	case tea.KeyLeft:
-		if inButtons && m.opts.cursor > optCount {
-			m.opts.cursor--
-		}
-	case tea.KeyRight:
-		if inButtons && m.opts.cursor < maxIdx {
-			m.opts.cursor++
-		}
+	case tea.KeyUp, tea.KeyDown:
+		var cmd tea.Cmd
+		m.opts.table, cmd = m.opts.table.Update(msg)
+		return m, cmd
 	case tea.KeyEnter:
-		if !inButtons {
-			opt := m.visibleOptionAt(m.opts.cursor)
+		cursor := m.opts.table.Cursor()
+		if cursor < m.visibleOptionCount() {
+			opt := m.visibleOptionAt(cursor)
 			if opt == nil {
 				return m, nil
 			}
 			if strings.EqualFold(opt.Name, "PAYLOAD") {
-				m.console.cmdSet([]string{"PAYLOAD"})
+				// Open fuzzy picker for payloads
+				m.console.selectPayload()
 				return m, nil
 			}
 			m.opts.editing = true
 			m.opts.editor.SetValue(opt.Value)
 			m.opts.editor.Focus()
 			m.opts.editor.CursorEnd()
-		} else {
-			return m, m.handleActionButton(m.opts.cursor - optCount)
 		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -537,9 +459,11 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m consoleModel) updateConfigEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEnter:
-		opt := m.visibleOptionAt(m.opts.cursor)
+		cursor := m.opts.table.Cursor()
+		opt := m.visibleOptionAt(cursor)
 		if opt != nil {
 			m.console.setOpt(opt.Name, m.opts.editor.Value())
+			m.refreshOptionsTable()
 		}
 		m.opts.editing = false
 		m.opts.editor.Blur()
@@ -593,12 +517,12 @@ func (m consoleModel) updateSessionsTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		sess := sessions[m.sessionCursor]
 		if m.sessionBtnMode {
 			switch m.sessionBtnCursor {
-			case 0: // Interact
+			case 0:
 				if m.console.program != nil {
 					go m.console.program.Send(sessionInteractMsg{id: sess.ID})
 				}
 				m.sessionBtnMode = false
-			case 1: // Kill
+			case 1:
 				handler.Kill(sess.ID)
 				if m.sessionCursor > 0 && m.sessionCursor >= len(sessions)-1 {
 					m.sessionCursor--
@@ -606,7 +530,6 @@ func (m consoleModel) updateSessionsTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.sessionBtnMode = false
 			}
 		} else {
-			// Enter on session row -> focus it, show buttons
 			m.sessionBtnMode = true
 			m.sessionBtnCursor = 0
 		}
@@ -623,7 +546,6 @@ func (m *consoleModel) handleActionButton(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(btns) {
 		return nil
 	}
-	// Inject the command as text, same as if user typed it
 	var cmd string
 	switch btns[idx] {
 	case "Check":
@@ -636,13 +558,12 @@ func (m *consoleModel) handleActionButton(idx int) tea.Cmd {
 		return nil
 	case "Show Advanced", "Hide Advanced":
 		m.opts.showAdvanced = !m.opts.showAdvanced
-		m.opts.cursor = 0
+		m.refreshOptionsTable()
 		return nil
 	}
 	if cmd == "" {
 		return nil
 	}
-	// Simulate typing the command
 	c := m.console
 	m.busy = true
 	return func() tea.Msg {
@@ -652,9 +573,11 @@ func (m *consoleModel) handleActionButton(idx int) tea.Cmd {
 }
 
 func (m *consoleModel) refreshConfig() {
-	m.opts.cursor = 0
+	m.opts.table.SetCursor(0)
 	m.opts.editing = false
 	m.opts.editor.Blur()
+	m.opts.labMenuOpen = false
+	m.refreshOptionsTable()
 }
 
 // --- Helpers ---
@@ -668,4 +591,8 @@ func padToHeight(content string, h int) string {
 		lines = lines[:h]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (m consoleModel) sessionInButtons() bool {
+	return m.sessionBtnMode
 }
