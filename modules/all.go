@@ -5,14 +5,12 @@
 package modules
 
 import (
-	// Exploit modules — HTTP
-	_ "github.com/Chocapikk/pik/modules/exploit/http/linux"
-	_ "github.com/Chocapikk/pik/modules/exploit/http/multi"
-	_ "github.com/Chocapikk/pik/pkg/protocol/http"
+	// Exploit modules — Linux
+	_ "github.com/Chocapikk/pik/modules/exploit/linux/http"
+	_ "github.com/Chocapikk/pik/modules/exploit/linux/tcp"
 
-	// Exploit modules — TCP
-	_ "github.com/Chocapikk/pik/modules/exploit/tcp/linux"
-	_ "github.com/Chocapikk/pik/pkg/protocol/tcp"
+	// Exploit modules — Multi-platform
+	_ "github.com/Chocapikk/pik/modules/exploit/multi/http"
 
 	// C2 backends
 	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"
