@@ -8,15 +8,6 @@ import (
 	"github.com/Chocapikk/pik/sdk"
 )
 
-// Option represents a module option visible to the TUI.
-type Option struct {
-	Name     string
-	Value    string
-	Required bool
-	Desc     string
-	Advanced bool
-}
-
 // New creates a Console with registered commands. Used by the TUI package.
 func New() *Console {
 	c := &Console{globals: make(map[string]string)}
@@ -61,20 +52,8 @@ func (c *Console) SetMod(mod sdk.Exploit) {
 	c.initOptions()
 }
 
-// Options returns the current module options as exported types.
-func (c *Console) Options() []Option {
-	result := make([]Option, len(c.options))
-	for i, o := range c.options {
-		result[i] = Option{
-			Name:     o.Name,
-			Value:    o.Value,
-			Required: o.Required,
-			Desc:     o.Desc,
-			Advanced: o.Advanced,
-		}
-	}
-	return result
-}
+// Options returns the current module options.
+func (c *Console) Options() []Option { return c.options }
 
 // OptionNames returns option names for completion.
 func (c *Console) OptionNames() []string { return c.optionNames() }

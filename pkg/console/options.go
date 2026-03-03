@@ -9,7 +9,7 @@ import (
 	"github.com/Chocapikk/pik/sdk"
 )
 
-type option struct {
+type Option struct {
 	Name     string
 	Value    string
 	Required bool
@@ -18,12 +18,12 @@ type option struct {
 }
 
 func (c *Console) initOptions() {
-	c.options = []option{
+	c.options = []Option{
 		{Name: "TARGET", Required: true, Desc: "Target URL/IP"},
 	}
 
 	for _, opt := range sdk.ResolveOptions(c.mod) {
-		c.options = append(c.options, option{
+		c.options = append(c.options, Option{
 			Name:     opt.Name,
 			Value:    opt.Default,
 			Required: opt.Required,

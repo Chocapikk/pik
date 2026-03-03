@@ -163,7 +163,7 @@ func (c *Console) showMissing() {
 		return
 	}
 
-	var missing []option
+	var missing []Option
 	for _, opt := range c.options {
 		if opt.Required && opt.Value == "" {
 			missing = append(missing, opt)

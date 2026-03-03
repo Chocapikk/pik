@@ -22,7 +22,7 @@ type command struct {
 // Console holds the state for the interactive REPL.
 type Console struct {
 	mod           sdk.Exploit
-	options       []option
+	options       []Option
 	targetIdx     int
 	activeBackend c2.Backend
 	commands      map[string]command

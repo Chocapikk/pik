@@ -228,7 +228,7 @@ func (m consoleModel) visibleOptionCount() int {
 	return count
 }
 
-func (m consoleModel) visibleOptionAt(idx int) *option {
+func (m consoleModel) visibleOptionAt(idx int) *Option {
 	cur := 0
 	for i := range m.console.options {
 		if m.console.options[i].Advanced && !m.opts.showAdvanced {
