@@ -46,8 +46,7 @@ func Spinner(label string) func(string) {
 	}
 }
 
-func Accent(s string) string    { return log.Cyan(s) }
-func Dim(s string) string       { return log.DimText(s) }
+func Accent(s string) string { return log.Cyan(s) }
 
 func HumanSize(bytes int) string {
 	switch {
