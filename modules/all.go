@@ -12,6 +12,10 @@ import (
 	// Exploit modules — Multi-platform
 	_ "github.com/Chocapikk/pik/modules/exploit/multi/http"
 
+	// Protocol client factories
+	_ "github.com/Chocapikk/pik/pkg/protocol/http"
+	_ "github.com/Chocapikk/pik/pkg/protocol/tcp"
+
 	// C2 backends
 	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"
 	_ "github.com/Chocapikk/pik/pkg/c2/sliver"
