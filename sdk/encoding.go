@@ -37,3 +37,14 @@ func RegexFind(pattern, s string) string {
 	}
 	return match[1]
 }
+
+// --- Binary packing ---
+
+// Buffer is a fluent binary packet builder for crafting protocol messages.
+// Re-exported from pkg/encode.
+type Buffer = encode.Buffer
+
+// NewBuffer creates a new binary packet builder.
+func NewBuffer() *Buffer {
+	return encode.NewBuffer()
+}
