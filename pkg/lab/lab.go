@@ -2,14 +2,13 @@ package lab
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"sort"
 	"strings"
 	"time"
-
-	"encoding/json"
-	"io"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -19,6 +18,7 @@ import (
 	"github.com/docker/go-connections/nat"
 
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/text"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -58,8 +58,8 @@ func (m *manager) Status(ctx context.Context) ([]sdk.LabStatus, error) {
 func (m *manager) IsRunning(ctx context.Context, name string) bool {
 	return IsRunning(ctx, name)
 }
-func (m *manager) Target(services []sdk.Service) string {
-	return Target(services)
+func (m *manager) Target(ctx context.Context, name string) string {
+	return Target(ctx, name)
 }
 func (m *manager) WaitReady(ctx context.Context, addr string, timeout time.Duration) error {
 	return WaitReady(ctx, addr, timeout)
@@ -117,6 +117,10 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 	return withClient(func(cli *client.Client) error {
 		teardown(ctx, cli, name)
 
+		// Shared random values so services in a lab resolve the same
+		// sdk.Rand("label") to the same generated value.
+		randoms := make(map[string]string)
+
 		netName := "pik_" + name
 		netResp, err := cli.NetworkCreate(ctx, netName, network.CreateOptions{
 			Labels: map[string]string{labelLab: name},
@@ -139,7 +143,7 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 				return fmt.Errorf("pull %s: %w", svc.Image, err)
 			}
 
-			cfg, hostCfg := toDocker(svc, name)
+			cfg, hostCfg := toDocker(svc, name, randoms)
 
 			netCfg := &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
@@ -264,20 +268,29 @@ func IsRunning(ctx context.Context, name string) bool {
 
 // --- Readiness ---
 
-// Target derives the exploit target (127.0.0.1:port) from a lab's
-// service definitions by finding the first host port binding.
-func Target(services []sdk.Service) string {
-	for _, svc := range services {
-		_, bindings, _ := nat.ParsePortSpecs(svc.Ports)
-		for _, portBindings := range bindings {
-			for _, binding := range portBindings {
-				if binding.HostPort != "" {
-					return "127.0.0.1:" + binding.HostPort
+// Target queries Docker for the actual mapped port of a running lab.
+// Since labs use random host ports, we can't read from static config.
+func Target(ctx context.Context, name string) string {
+	target := "127.0.0.1"
+	withClient(func(cli *client.Client) error {
+		containers, err := cli.ContainerList(ctx, container.ListOptions{
+			Filters: filters.NewArgs(filters.Arg("label", labelLab+"="+name)),
+		})
+		if err != nil || len(containers) == 0 {
+			return nil
+		}
+		// Find the first container with a mapped port.
+		for _, ctr := range containers {
+			for _, p := range ctr.Ports {
+				if p.PublicPort > 0 {
+					target = fmt.Sprintf("127.0.0.1:%d", p.PublicPort)
+					return nil
 				}
 			}
 		}
-	}
-	return "127.0.0.1"
+		return nil
+	})
+	return target
 }
 
 // WaitReady polls a TCP address until it accepts connections.
@@ -314,13 +327,13 @@ func DockerGateway() string {
 // --- Internal ---
 
 // toDocker converts an sdk.Service to Docker SDK types.
-func toDocker(svc sdk.Service, labName string) (*container.Config, *container.HostConfig) {
+func toDocker(svc sdk.Service, labName string, passwords map[string]string) (*container.Config, *container.HostConfig) {
 	exposed, bindings, _ := nat.ParsePortSpecs(svc.Ports)
 
 	cfg := &container.Config{
 		Image:        svc.Image,
 		ExposedPorts: exposed,
-		Env:          envSlice(svc.Env),
+		Env:          envSlice(svc.Env, passwords),
 		Cmd:          svc.Cmd,
 		Labels: map[string]string{
 			labelLab:     labName,
@@ -335,12 +348,12 @@ func toDocker(svc sdk.Service, labName string) (*container.Config, *container.Ho
 		}
 	}
 
-	// Force localhost binding - labs are local, never expose to network.
+	// Force localhost + random host port. Avoids port conflicts
+	// and never exposes labs to the network.
 	for port, portBindings := range bindings {
 		for i := range portBindings {
-			if portBindings[i].HostIP == "" || portBindings[i].HostIP == "0.0.0.0" {
-				portBindings[i].HostIP = "127.0.0.1"
-			}
+			portBindings[i].HostIP = "127.0.0.1"
+			portBindings[i].HostPort = "0"
 		}
 		bindings[port] = portBindings
 	}
@@ -391,12 +404,22 @@ func showPullProgress(reader io.ReadCloser) error {
 	return nil
 }
 
-func envSlice(m map[string]string) []string {
+// envSlice converts env map to Docker format, resolving sdk.Rand()
+// placeholders to random values. Same label = same value across services.
+func envSlice(m map[string]string, randoms map[string]string) []string {
 	if len(m) == 0 {
 		return nil
 	}
 	env := make([]string, 0, len(m))
 	for k, v := range m {
+		if label, ok := sdk.IsRand(v); ok {
+			if resolved, exists := randoms[label]; exists {
+				v = resolved
+			} else {
+				v = text.RandAlphaNum(16)
+				randoms[label] = v
+			}
+		}
 		env = append(env, k+"="+v)
 	}
 	return env

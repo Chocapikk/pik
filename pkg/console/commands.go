@@ -756,7 +756,7 @@ func (c *Console) labRun() {
 	}
 
 	// Derive target from port bindings.
-	target := mgr.Target(info.Lab.Services)
+	target := mgr.Target(ctx, labName)
 
 	// Phase 1: wait for TCP port to open.
 	output.Status("Waiting for %s", target)

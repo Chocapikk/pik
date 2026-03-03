@@ -13,7 +13,7 @@ type LabManager interface {
 	Stop(ctx context.Context, name string) error
 	Status(ctx context.Context) ([]LabStatus, error)
 	IsRunning(ctx context.Context, name string) bool
-	Target(services []Service) string
+	Target(ctx context.Context, name string) string
 	WaitReady(ctx context.Context, addr string, timeout time.Duration) error
 	WaitProbe(ctx context.Context, timeout time.Duration, fn func() error) error
 	DockerGateway() string

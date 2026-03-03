@@ -196,6 +196,20 @@ type Service struct {
 	Healthcheck []string          // CMD-SHELL health check command
 }
 
+const randPrefix = "{{rand:"
+
+// Rand returns a placeholder that pkg/lab replaces with a random value.
+// Same label across services = same generated value (shared credentials).
+func Rand(label string) string { return randPrefix + label + "}}" }
+
+// IsRand checks if a value is a Rand placeholder and returns the label.
+func IsRand(v string) (string, bool) {
+	if strings.HasPrefix(v, randPrefix) && strings.HasSuffix(v, "}}") {
+		return v[len(randPrefix) : len(v)-2], true
+	}
+	return "", false
+}
+
 // NewLabService builds a Service for the common case: image + port bindings.
 // Chain WithEnv(), WithCmd(), WithVolume(), and WithHealthcheck() for more.
 func NewLabService(name, image string, ports ...string) Service {
