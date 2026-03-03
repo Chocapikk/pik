@@ -82,10 +82,44 @@ func (c *Console) setOpt(name, value string) bool {
 	for i := range c.options {
 		if strings.EqualFold(c.options[i].Name, name) {
 			c.options[i].Value = value
+			c.syncTargetPort(name, value)
 			return true
 		}
 	}
 	return false
+}
+
+// syncTargetPort keeps TARGET and RPORT in sync.
+// Setting TARGET with a port updates RPORT.
+// Setting RPORT updates the port in TARGET.
+func (c *Console) syncTargetPort(name, value string) {
+	upper := strings.ToUpper(name)
+	if upper == "TARGET" && strings.Contains(value, ":") {
+		parts := strings.SplitN(value, ":", 2)
+		if len(parts) == 2 && c.hasOpt("RPORT") {
+			for i := range c.options {
+				if strings.EqualFold(c.options[i].Name, "RPORT") {
+					c.options[i].Value = parts[1]
+					break
+				}
+			}
+		}
+	}
+	if upper == "RPORT" && c.hasOpt("TARGET") {
+		target := c.getOpt("TARGET")
+		if target != "" {
+			host := target
+			if idx := strings.LastIndex(target, ":"); idx >= 0 {
+				host = target[:idx]
+			}
+			for i := range c.options {
+				if strings.EqualFold(c.options[i].Name, "TARGET") {
+					c.options[i].Value = host + ":" + value
+					break
+				}
+			}
+		}
+	}
 }
 
 // requireMod checks that a module is selected. Returns false and prints an error if not.
