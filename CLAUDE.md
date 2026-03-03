@@ -92,7 +92,7 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - `sdk.Run()` uses late binding: `pkg/cli.init()` calls `sdk.SetRunner(RunStandaloneWith)`.
 - Standalone binaries need: `import "sdk"` + `import _ "pkg/cli"` + `import _ "pkg/protocol/<proto>"`. Add `_ "pkg/lab"` + `sdk.WithLab()` for lab support.
 - Option enrichers (`sdk.RegisterEnricher`) auto-inject LHOST, LPORT, C2, HTTP/TCP options etc. Enrichers in `pkg/enricher/`, protocol factories in `pkg/protocol/*/option.go`.
-- Protocol late binding: `sdk.SetSendFactory` (HTTP), `sdk.SetDialFactory` (TCP), `sdk.SetPoolFactory` (HTTP pooling). Protocols register via `init()`. Only imported protocols are compiled into the binary.
+- Protocol late binding: `sdk.RegisterSenderFactory` (structured protos), `sdk.SetDialFactory` (raw connections), `sdk.SetPoolFactory` (pooling). Only imported protocols are compiled into the binary.
 - `pik build <module>`: compiles standalone binary. `pik generate <module>`: emits source code. Both auto-detect protocol from module path.
 - Advanced options via `sdk.OptAdvanced()`. Only TARGET, LHOST, LPORT, PAYLOAD in `show options`.
 - Module request paths are relative (`"install.php"` not `"/install.php"`). NormalizeURI handles TARGETURI.
@@ -103,7 +103,9 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Console `use <id>` selects module + target by global index from `list`.
 - C2 backends self-register via `c2.RegisterFactory()` in `init()`.
 - Constants: `cmdstager.DefaultLineMax` (2047), `cmdstager.DefaultFlavor` (printf).
-- HTTP modules use `run.Send(sdk.Request{...})`. TCP modules use `run.Dial()` -> `sdk.Conn` (Send/Recv/SendRecv/Close).
+- `run.Send()` is polymorphic: dispatches by request type. `run.Send(sdk.HTTPRequest{...})` for HTTP. Future protos add new request types.
+- `run.Dial()` -> `sdk.Conn` for raw persistent connections (TCP). Send/Recv/SendRecv/Close.
+- `sdk.HTTPRequest` / `sdk.HTTPResponse` - explicitly named, implements `sdk.Sendable` interface.
 - Binary packing: `sdk.NewBuffer().Byte(0x14).Uint32(val).String("data").NameList("a","b").Build()` - generic fluent builder for crafting protocol messages.
 - Protocol tracing: `HTTP_TRACE=true` or `TCP_TRACE=true` as advanced options (not --debug).
 - HTTP client preserves raw header casing (no canonicalization). Some servers are case-sensitive.
@@ -118,6 +120,35 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Shared types in `pkg/types/` break the import cycle: `console` -> `types`, `tui` -> `types` + `console`.
 - `lab start` auto-sets TARGET (from port bindings) and LHOST (from Docker gateway).
 - Setting TARGET with a port auto-syncs RPORT, and vice versa.
+
+## Adding a new structured protocol (e.g. gRPC, GraphQL)
+
+1. Define request/response types in `sdk/types.go`:
+```go
+type GRPCRequest struct { Method string; Body string }
+type GRPCResponse struct { Body []byte; Error string }
+func (GRPCRequest) protocol() string { return "grpc" }
+```
+
+2. Add the case in `sdk/context.go` Send():
+```go
+case GRPCRequest:
+    fn, ok := c.senders["grpc"]
+    if !ok { return nil, fmt.Errorf("no gRPC client configured") }
+    return fn.(func(GRPCRequest) (*GRPCResponse, error))(r)
+```
+
+3. Create `pkg/protocol/grpc/` with factory registration in init():
+```go
+sdk.RegisterSenderFactory("grpc", func(params sdk.Params) any {
+    // return func(sdk.GRPCRequest) (*sdk.GRPCResponse, error)
+})
+```
+
+4. Add enricher options in `pkg/enricher/grpc.go` if needed.
+5. Add `protoFromPath` case in `pkg/cli/helpers.go` for standalone builds.
+
+Module author just writes: `run.Send(sdk.GRPCRequest{Method: "GetUser"})`.
 
 ## Go conventions
 
