@@ -122,7 +122,22 @@ func (m consoleModel) renderActiveTab() string {
 func (m consoleModel) renderBrowseTab(h int) string {
 	searchLine := m.search.input.View()
 	m.browser.SetHeight(h - 1)
-	m.browser.SetWidth(m.width)
+	w := m.width
+	m.browser.SetWidth(w)
+	// Recalculate column widths on render
+	fixed := 3 + 11 + 5 + 4
+	remaining := w - fixed
+	nameW := remaining * 35 / 100
+	descW := remaining * 35 / 100
+	cveW := remaining - nameW - descW
+	m.browser.SetColumns([]table.Column{
+		{Title: "#", Width: 3},
+		{Title: "Name", Width: nameW},
+		{Title: "Reliability", Width: 11},
+		{Title: "Check", Width: 5},
+		{Title: "Description", Width: descW},
+		{Title: "CVEs", Width: cveW},
+	})
 	return padToHeight(searchLine+"\n"+m.browser.View(), h)
 }
 
@@ -131,7 +146,13 @@ func newBrowserTable(w, h int) table.Model {
 	rows := make([]table.Row, len(modules))
 	for i, mod := range modules {
 		info := mod.Info()
-		cves := strings.Join(info.CVEs(), ", ")
+		cveList := info.CVEs()
+		cves := "-"
+		if len(cveList) == 1 {
+			cves = cveList[0]
+		} else if len(cveList) > 1 {
+			cves = fmt.Sprintf("%d CVEs", len(cveList))
+		}
 		rel := info.Reliability.String()
 		check := "no"
 		if _, ok := mod.(sdk.Checker); ok {
@@ -147,13 +168,19 @@ func newBrowserTable(w, h int) table.Model {
 		}
 	}
 
+	fixed := 3 + 11 + 5 + 4 // #, Reliability, Check, padding
+	remaining := w - fixed
+	nameW := remaining * 35 / 100
+	descW := remaining * 35 / 100
+	cveW := remaining - nameW - descW
+
 	cols := []table.Column{
 		{Title: "#", Width: 3},
-		{Title: "Name", Width: max(w*30/100, 20)},
+		{Title: "Name", Width: nameW},
 		{Title: "Reliability", Width: 11},
 		{Title: "Check", Width: 5},
-		{Title: "Description", Width: max(w*25/100, 15)},
-		{Title: "CVEs", Width: max(w*20/100, 10)},
+		{Title: "Description", Width: descW},
+		{Title: "CVEs", Width: cveW},
 	}
 
 	t := table.New(
@@ -407,7 +434,13 @@ func buildBrowserRows() []table.Row {
 	rows := make([]table.Row, len(modules))
 	for i, mod := range modules {
 		info := mod.Info()
-		cves := strings.Join(info.CVEs(), ", ")
+		cveList := info.CVEs()
+		cves := "-"
+		if len(cveList) == 1 {
+			cves = cveList[0]
+		} else if len(cveList) > 1 {
+			cves = fmt.Sprintf("%d CVEs", len(cveList))
+		}
 		rel := info.Reliability.String()
 		check := "no"
 		if _, ok := mod.(sdk.Checker); ok {
