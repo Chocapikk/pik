@@ -274,7 +274,7 @@ func Target(ctx context.Context, name string) string {
 	target := "127.0.0.1"
 	withClient(func(cli *client.Client) error {
 		containers, err := cli.ContainerList(ctx, container.ListOptions{
-			Filters: filters.NewArgs(filters.Arg("label", labelLab+"="+name)),
+			Filters: labFilter(name),
 		})
 		if err != nil || len(containers) == 0 {
 			return nil
@@ -425,10 +425,14 @@ func envSlice(m map[string]string, randoms map[string]string) []string {
 	return env
 }
 
+func labFilter(name string) filters.Args {
+	return labFilter(name)
+}
+
 func teardown(ctx context.Context, cli *client.Client, name string) {
 	containers, _ := cli.ContainerList(ctx, container.ListOptions{
 		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", labelLab+"="+name)),
+		Filters: labFilter(name),
 	})
 	for _, ctr := range containers {
 		cli.ContainerStop(ctx, ctr.ID, container.StopOptions{})
@@ -436,7 +440,7 @@ func teardown(ctx context.Context, cli *client.Client, name string) {
 	}
 
 	networks, _ := cli.NetworkList(ctx, network.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("label", labelLab+"="+name)),
+		Filters: labFilter(name),
 	})
 	for _, n := range networks {
 		cli.NetworkRemove(ctx, n.ID)
