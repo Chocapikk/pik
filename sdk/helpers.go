@@ -30,6 +30,11 @@ func Contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
+// ContainsI checks if s contains substr (case-insensitive).
+func ContainsI(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
 // Dedent strips the common leading whitespace from all non-empty lines.
 func Dedent(s string) string {
 	lines := strings.Split(s, "\n")

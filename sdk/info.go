@@ -248,9 +248,10 @@ func (s Service) WithHealthcheck(cmd string) Service {
 // Author describes a module contributor.
 // Email is automatically formatted to <user[at]domain> for anti-scraping.
 type Author struct {
-	Name   string // real name or alias
-	Handle string // online handle (e.g. "Chocapikk")
-	Email  string // contact email, must use <user[at]domain> format (Register panics on raw @)
+	Name    string // real name or alias
+	Handle  string // online handle (e.g. "Chocapikk")
+	Email   string // contact email, must use <user[at]domain> format (Register panics on raw @)
+	Company string // organization or team (e.g. "Horizon3 Attack Team")
 }
 
 // ObfuscateEmail formats a raw email to <user[at]domain>.
@@ -267,6 +268,9 @@ func (a Author) String() string {
 	parts := a.Name
 	if a.Handle != "" && a.Handle != a.Name {
 		parts += " (" + a.Handle + ")"
+	}
+	if a.Company != "" {
+		parts += " @ " + a.Company
 	}
 	if a.Email != "" {
 		parts += " " + ObfuscateEmail(a.Email)
