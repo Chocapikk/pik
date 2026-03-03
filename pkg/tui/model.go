@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -55,8 +56,9 @@ type consoleModel struct {
 	tuiFocused    bool // true = keys go to tab content, false = keys go to console input
 	splitRatio    int  // percentage of height for tab content (0 = auto)
 
-	browser list.Model
-	search  browseSearch
+	browser    table.Model
+	allRows    []table.Row // full module list for filtering
+	search     browseSearch
 	opts    optionsPanel
 
 	fuzzy fuzzyModel
@@ -86,7 +88,8 @@ func NewModel(c *console.Console) consoleModel {
 		console:    c,
 		input:      ti,
 		activeTab:  tabBrowse,
-		browser:    newBrowser(80, 20),
+		browser:    newBrowserTable(80, 20),
+		allRows:    buildBrowserRows(),
 		search:     newBrowseSearch(),
 		opts:       newOptionsPanel(),
 		history:    loadHistory(),
@@ -118,7 +121,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		th := m.tabHeight()
 		oh := m.outputHeight()
-		m.browser.SetSize(m.width, th)
+		m.browser.SetWidth(m.width); m.browser.SetHeight(th)
 		m.viewport.Width = m.width
 		m.viewport.Height = oh
 		if !m.ready {
@@ -142,7 +145,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commandDoneMsg:
 		m.busy = false
-		m.refreshConfig()
+		m.refreshOptionsOnly()
 		return m, nil
 
 	case types.SessionInteractMsg:
@@ -265,7 +268,7 @@ func (m consoleModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// Recalculate sizes
 		th := m.tabHeight()
 		oh := m.outputHeight()
-		m.browser.SetSize(m.width, th)
+		m.browser.SetWidth(m.width); m.browser.SetHeight(th)
 		m.viewport.Width = m.width
 		m.viewport.Height = oh
 		m.viewport.SetContent(strings.Join(m.output, ""))
@@ -291,9 +294,9 @@ func (m consoleModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			// Mouse scroll in browse = navigate list
 			if isScroll {
 				if msg.Button == tea.MouseButtonWheelUp {
-					m.browser.CursorUp()
+					m.browser.MoveUp(1)
 				} else {
-					m.browser.CursorDown()
+					m.browser.MoveDown(1)
 				}
 				return m, nil
 			}
@@ -548,7 +551,7 @@ func (m consoleModel) updateFuzzy(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m consoleModel) isAtTopOfTab() bool {
 	switch m.activeTab {
 	case tabBrowse:
-		return m.browser.Index() == 0
+		return m.browser.Cursor() == 0
 	case tabConfig:
 		return m.opts.table.Cursor() == 0
 	case tabSessions:

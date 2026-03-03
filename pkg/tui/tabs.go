@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -122,31 +121,52 @@ func (m consoleModel) renderActiveTab() string {
 
 func (m consoleModel) renderBrowseTab(h int) string {
 	searchLine := m.search.input.View()
-	m.browser.SetSize(m.width, h-1)
+	m.browser.SetHeight(h - 1)
+	m.browser.SetWidth(m.width)
 	return padToHeight(searchLine+"\n"+m.browser.View(), h)
 }
 
-func newBrowser(w, h int) list.Model {
+func newBrowserTable(w, h int) table.Model {
 	modules := sdk.List()
-	items := make([]list.Item, len(modules))
+	rows := make([]table.Row, len(modules))
 	for i, mod := range modules {
 		info := mod.Info()
 		cves := strings.Join(info.CVEs(), ", ")
-		desc := info.Title()
-		if cves != "" {
-			desc += " - " + cves
+		rel := info.Reliability.String()
+		check := "no"
+		if _, ok := mod.(sdk.Checker); ok {
+			check = "yes"
 		}
-		items[i] = fuzzyItem{Name: sdk.NameOf(mod), Desc: desc}
+		rows[i] = table.Row{
+			fmt.Sprintf("%d", i),
+			sdk.NameOf(mod),
+			rel,
+			check,
+			info.Title(),
+			cves,
+		}
 	}
 
-	delegate := newFuzzyDelegate()
-	l := list.New(items, delegate, w, h)
-	l.SetShowTitle(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowStatusBar(true)
-	l.SetShowHelp(false)
-	l.DisableQuitKeybindings()
-	return l
+	cols := []table.Column{
+		{Title: "#", Width: 3},
+		{Title: "Name", Width: max(w*30/100, 20)},
+		{Title: "Reliability", Width: 11},
+		{Title: "Check", Width: 5},
+		{Title: "Description", Width: max(w*25/100, 15)},
+		{Title: "CVEs", Width: max(w*20/100, 10)},
+	}
+
+	t := table.New(
+		table.WithColumns(cols),
+		table.WithRows(rows),
+		table.WithHeight(h),
+		table.WithFocused(true),
+	)
+	s := table.DefaultStyles()
+	s.Header = s.Header.Foreground(lipgloss.Color("214")).Bold(true)
+	s.Selected = s.Selected.Foreground(lipgloss.Color("214")).Bold(true)
+	t.SetStyles(s)
+	return t
 }
 
 // --- Config tab ---
@@ -156,19 +176,10 @@ func (m consoleModel) renderConfigTab(h int) string {
 		return padToHeight("\n"+log.White("  No module selected")+"\n\n"+log.White("  Select a module in Browse (F1) or type 'use <module>'"), h)
 	}
 
-	var lines []string
-	lines = append(lines, "")
-	lines = append(lines, "  "+log.Amber(sdk.NameOf(m.console.Mod()))+"  "+log.White(m.console.Mod().Info().Title()))
-	lines = append(lines, "")
-
-	// Options table
-	m.opts.table.SetHeight(h - 6) // header(3) + buttons(~3)
-	lines = append(lines, m.opts.table.View())
-
-	// Action buttons
+	// Bottom section: buttons (fixed at bottom)
+	var bottom []string
 	btns := m.actionButtons()
 	if len(btns) > 0 {
-		lines = append(lines, "")
 		var rendered []string
 		for i, btn := range btns {
 			style := btnStyle
@@ -177,7 +188,7 @@ func (m consoleModel) renderConfigTab(h int) string {
 			}
 			rendered = append(rendered, style.Render(btn))
 		}
-		lines = append(lines, "  "+strings.Join(rendered, "  "))
+		bottom = append(bottom, "  "+strings.Join(rendered, "  "))
 
 		if m.opts.labMenuOpen {
 			for i, item := range labSubMenu {
@@ -185,12 +196,42 @@ func (m consoleModel) renderConfigTab(h int) string {
 				if i == m.opts.labMenuCursor {
 					prefix = "   " + log.Amber("> ")
 				}
-				lines = append(lines, prefix+log.White(item))
+				bottom = append(bottom, prefix+log.White(item))
 			}
 		}
 	}
 
-	return padToHeight(strings.Join(lines, "\n"), h)
+	bottomH := len(bottom) + 1 // +1 for spacing
+	tableH := h - 3 - bottomH  // 3 = header lines
+	if tableH < 3 {
+		tableH = 3
+	}
+
+	// Top section: header + options table
+	var top []string
+	top = append(top, "")
+	top = append(top, "  "+log.Amber(sdk.NameOf(m.console.Mod()))+"  "+log.White(m.console.Mod().Info().Title()))
+	top = append(top, "")
+
+	m.opts.table.SetHeight(tableH)
+	top = append(top, m.opts.table.View())
+
+	// Pad between top and bottom to push buttons to bottom
+	topStr := strings.Join(top, "\n")
+	topLines := strings.Count(topStr, "\n") + 1
+	padLines := h - topLines - len(bottom)
+	if padLines < 1 {
+		padLines = 1
+	}
+
+	var result []string
+	result = append(result, topStr)
+	for i := 0; i < padLines; i++ {
+		result = append(result, "")
+	}
+	result = append(result, bottom...)
+
+	return padToHeight(strings.Join(result, "\n"), h)
 }
 
 func (m *consoleModel) refreshOptionsTable() {
@@ -331,8 +372,9 @@ func (m consoleModel) renderSessionsTab(h int) string {
 func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEnter:
-		if item, ok := m.browser.SelectedItem().(fuzzyItem); ok {
-			m.console.UseByName(item.Name)
+		row := m.browser.SelectedRow()
+		if len(row) >= 2 {
+			m.console.UseByName(row[1]) // column 1 = Name
 			m.refreshConfig()
 			m.activeTab = tabConfig
 			m.search.input.SetValue("")
@@ -360,40 +402,49 @@ func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *consoleModel) filterBrowser(query string) {
-	query = strings.ToLower(query)
+func buildBrowserRows() []table.Row {
 	modules := sdk.List()
-	var items []list.Item
-	for _, mod := range modules {
-		info := mod.Info()
-		name := strings.ToLower(sdk.NameOf(mod))
-		cves := strings.ToLower(strings.Join(info.CVEs(), " "))
-		desc := strings.ToLower(info.Title())
-		if strings.Contains(name, query) || strings.Contains(cves, query) || strings.Contains(desc, query) {
-			cvesStr := strings.Join(info.CVEs(), ", ")
-			d := info.Title()
-			if cvesStr != "" {
-				d += " - " + cvesStr
-			}
-			items = append(items, fuzzyItem{Name: sdk.NameOf(mod), Desc: d})
-		}
-	}
-	m.browser.SetItems(items)
-}
-
-func (m *consoleModel) resetBrowserFilter() {
-	modules := sdk.List()
-	items := make([]list.Item, len(modules))
+	rows := make([]table.Row, len(modules))
 	for i, mod := range modules {
 		info := mod.Info()
 		cves := strings.Join(info.CVEs(), ", ")
-		desc := info.Title()
-		if cves != "" {
-			desc += " - " + cves
+		rel := info.Reliability.String()
+		check := "no"
+		if _, ok := mod.(sdk.Checker); ok {
+			check = "yes"
 		}
-		items[i] = fuzzyItem{Name: sdk.NameOf(mod), Desc: desc}
+		rows[i] = table.Row{
+			fmt.Sprintf("%d", i),
+			sdk.NameOf(mod),
+			rel,
+			check,
+			info.Title(),
+			cves,
+		}
 	}
-	m.browser.SetItems(items)
+	return rows
+}
+
+func (m *consoleModel) filterBrowser(query string) {
+	query = strings.ToLower(query)
+	var filtered []table.Row
+	for _, row := range m.allRows {
+		match := false
+		for _, cell := range row {
+			if strings.Contains(strings.ToLower(cell), query) {
+				match = true
+				break
+			}
+		}
+		if match {
+			filtered = append(filtered, row)
+		}
+	}
+	m.browser.SetRows(filtered)
+}
+
+func (m *consoleModel) resetBrowserFilter() {
+	m.browser.SetRows(m.allRows)
 }
 
 func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -615,6 +666,7 @@ func (m *consoleModel) handleActionButton(idx int) tea.Cmd {
 	}
 }
 
+// refreshConfig resets the config tab fully (new module selected).
 func (m *consoleModel) refreshConfig() {
 	m.opts.table.SetCursor(0)
 	m.opts.editing = false
@@ -623,6 +675,11 @@ func (m *consoleModel) refreshConfig() {
 	m.opts.btnMode = false
 	m.opts.btnCursor = 0
 	m.opts.table.Focus()
+	m.refreshOptionsTable()
+}
+
+// refreshOptionsOnly updates option values without resetting focus state.
+func (m *consoleModel) refreshOptionsOnly() {
 	m.refreshOptionsTable()
 }
 
