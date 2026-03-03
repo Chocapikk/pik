@@ -17,7 +17,9 @@ pik update
 ## Usage
 
 ```bash
-pik console                                        # Interactive console
+pik                                                # Interactive readline console (default)
+pik console                                        # Same as above
+pik tui                                            # TUI dashboard with tabs
 pik run opendcim_sqli_rce -t target -s LHOST=ip    # Run an exploit
 pik check opendcim_sqli_rce -t target              # Check only
 pik info opendcim_sqli_rce                         # Module details + dorks
@@ -46,6 +48,20 @@ pik opendcim_sqli_rce > kill 1
 Commands: `use`, `back`, `show options|advanced|payloads|targets|modules`, `set`, `unset`, `target`, `check`, `exploit`, `lab start|stop|status|run`, `sessions`, `kill`, `search`, `info`, `resource`, `list`, `rank`, `clear`, `help`.
 
 Ctrl+Z backgrounds a session. `use <id>` selects a module by index. `resource exploit.rc` runs commands from a file. History persists across sessions.
+
+## TUI dashboard
+
+```bash
+pik tui
+```
+
+Tab-based dashboard with mouse and keyboard support:
+
+- **F1 Browse** - Module table with search bar, reliability, check support, CVEs
+- **F2 Config** - Inline option editing, action buttons (Check, Exploit, Lab), advanced toggle
+- **F3 Sessions** - Session list with Interact/Kill actions
+
+Output viewport is always visible at the bottom. Click to switch between TUI and console input zones. The TUI and console share the same business logic - standalone binaries don't pull TUI dependencies.
 
 ## Lab environments
 

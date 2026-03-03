@@ -16,13 +16,27 @@ pkg/cli/            CLI + standalone runner
   standalone.go     RunStandaloneWith() + init() registers runner via sdk.SetRunner()
   cmd_lab.go        `pik lab start|stop|status|run` subcommands
 
-pkg/console/        Interactive REPL (split into focused files)
-  console.go        Core REPL, command registry (map[string]command), readline
-  options.go        Option init, import target defaults, get/set/build params
+pkg/console/        Business logic + readline REPL
+  console.go        Console struct, command registry, exec dispatcher
+  readline.go       Readline-based Run/RunWith, tab completion, history
+  api.go            Exported methods for TUI (SetProgram, Exec, UseByName, etc.)
+  options.go        Option type (= types.Option), init, get/set/build params, TARGET<->RPORT sync
   commands.go       User commands (use, set, show, info, target, resource, lab, clear, etc.)
   exploit.go        Check, exploit, cmdstager, C2 wiring, BuildContext bridge
   sessions.go       Session list, interact, kill, backend lifecycle
   display.go        Table rendering with ANSI-aware log.Pad(), styling helpers
+
+pkg/tui/            Bubbletea TUI dashboard (optional, `pik tui`)
+  run.go            TUI entry point Run/RunWith, tea.Program setup
+  model.go          Bubbletea model (tabs, viewport, input, focus zones)
+  tabs.go           Browse/Config/Sessions tab rendering + key handling
+  fuzzy.go          Fuzzy picker overlay (module/payload selection)
+  tuiwriter.go      io.Writer adapter that forwards output to bubbletea viewport
+  completion.go     Tab completion for TUI input
+  history.go        Command history persistence (~/.pik_history)
+
+pkg/types/          Shared types between console and tui (breaks import cycle)
+  types.go          Option, FuzzyItem, FuzzySelectMsg, SessionInteractMsg, ClearOutputMsg
 
 pkg/runner/         Execution engine
   single.go         RunSingle: resolveTarget -> deliverPayload or deliverCmdStager
@@ -76,6 +90,11 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Lab: `sdk.NewLabService(name, image, ports...).WithEnv(k, v).WithHealthcheck(cmd)`. `sdk.Rand("label")` for random shared creds.
 - Lab internals: late binding via `sdk.SetLabManager()`, Docker SDK isolated in `pkg/lab`, random host ports, 127.0.0.1 only, DNS aliases by service name, labels for tracking.
 - `pik lab run <module>`: start lab, TCP wait, probe Check() until app ready, auto LHOST (docker gateway), exploit.
+- `pik` or `pik console`: readline REPL (default). `pik tui`: bubbletea TUI dashboard.
+- TUI uses `MsgSender` interface (not `*tea.Program` directly) to avoid pulling bubbletea into standalone builds.
+- Shared types in `pkg/types/` break the import cycle: `console` -> `types`, `tui` -> `types` + `console`.
+- `lab start` auto-sets TARGET (from port bindings) and LHOST (from Docker gateway).
+- Setting TARGET with a port auto-syncs RPORT, and vice versa.
 
 ## Go conventions
 
