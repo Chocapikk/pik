@@ -687,6 +687,14 @@ func (c *Console) labStart() {
 		c.setOpt("TARGET", target)
 		output.Success("TARGET => %s", target)
 	}
+
+	// Auto-set LHOST from Docker gateway if not set.
+	if c.getOpt("LHOST") == "" {
+		if gw := mgr.DockerGateway(); gw != "" {
+			c.setOpt("LHOST", gw)
+			output.Success("LHOST => %s", gw)
+		}
+	}
 }
 
 func (c *Console) labStop() {
