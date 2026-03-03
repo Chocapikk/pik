@@ -327,13 +327,13 @@ func DockerGateway() string {
 // --- Internal ---
 
 // toDocker converts an sdk.Service to Docker SDK types.
-func toDocker(svc sdk.Service, labName string, passwords map[string]string) (*container.Config, *container.HostConfig) {
+func toDocker(svc sdk.Service, labName string, randoms map[string]string) (*container.Config, *container.HostConfig) {
 	exposed, bindings, _ := nat.ParsePortSpecs(svc.Ports)
 
 	cfg := &container.Config{
 		Image:        svc.Image,
 		ExposedPorts: exposed,
-		Env:          envSlice(svc.Env, passwords),
+		Env:          envSlice(svc.Env, randoms),
 		Cmd:          svc.Cmd,
 		Labels: map[string]string{
 			labelLab:     labName,
