@@ -42,9 +42,9 @@ func (c *Console) cmdSessions(args []string) {
 	)
 	for _, sess := range sessions {
 		output.Print("  %s  %s  %s\n",
-			log.Pad(log.Cyan(strconv.Itoa(sess.ID)), 6),
+			log.Pad(log.Amber(strconv.Itoa(sess.ID)), 6),
 			log.Pad(log.White(sess.RemoteAddr), 25),
-			log.Gray(sess.CreatedAt.Format("15:04:05")),
+			log.Muted(sess.CreatedAt.Format("15:04:05")),
 		)
 	}
 	output.Println()

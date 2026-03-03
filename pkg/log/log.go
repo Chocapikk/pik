@@ -53,9 +53,7 @@ func DimText(s string) string        { return Style(Dim, s) }
 func BoldText(s string) string       { return Style(Bold, s) }
 func UnderlineText(s string) string  { return Style(Underline, s) }
 
-// Backward compat aliases.
-func Cyan(s string) string   { return Amber(s) }
-func Gray(s string) string   { return Muted(s) }
+
 
 var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 

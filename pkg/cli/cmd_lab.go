@@ -175,7 +175,7 @@ func labStatusCmd() *cobra.Command {
 			}
 			output.Println()
 			for _, l := range labs {
-				output.Print("  %s\n", log.Cyan(l.Name))
+				output.Print("  %s\n", log.Amber(l.Name))
 				for _, svc := range l.Services {
 					state := log.Green(svc.State)
 					if svc.State != "running" {
@@ -183,7 +183,7 @@ func labStatusCmd() *cobra.Command {
 					}
 					ports := ""
 					if svc.Ports != "" {
-						ports = " " + log.Gray(svc.Ports)
+						ports = " " + log.Muted(svc.Ports)
 					}
 					output.Print("    %s  %s  %s%s\n",
 						log.Pad(svc.Name, 20),

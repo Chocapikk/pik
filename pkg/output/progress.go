@@ -29,7 +29,7 @@ func Spinner(label string) func(string) {
 				mu.Lock()
 				l := currentLabel
 				mu.Unlock()
-				fmt.Fprintf(log.Output(), "\r%s %s", log.Cyan(spinFrames[frame%len(spinFrames)]), l)
+				fmt.Fprintf(log.Output(), "\r%s %s", log.Amber(spinFrames[frame%len(spinFrames)]), l)
 				frame++
 			}
 		}
@@ -46,7 +46,7 @@ func Spinner(label string) func(string) {
 	}
 }
 
-func Accent(s string) string { return log.Cyan(s) }
+func Accent(s string) string { return log.Amber(s) }
 
 func HumanSize(bytes int) string {
 	switch {
@@ -60,10 +60,10 @@ func HumanSize(bytes int) string {
 }
 
 func InfoBox(title string, pairs ...string) {
-	border := log.Gray(strings.Repeat("─", 45))
-	fmt.Fprintf(log.Output(), "\n %s %s %s\n", log.Gray("┌"), log.Cyan(title), log.Gray(strings.Repeat("─", max(0, 43-log.VisualLen(title)))))
+	border := log.Muted(strings.Repeat("─", 45))
+	fmt.Fprintf(log.Output(), "\n %s %s %s\n", log.Muted("┌"), log.Amber(title), log.Muted(strings.Repeat("─", max(0, 43-log.VisualLen(title)))))
 	for i := 0; i+1 < len(pairs); i += 2 {
-		fmt.Fprintf(log.Output(), " %s  %s %s\n", log.Gray("│"), log.Pad(log.Blue(pairs[i]), 14), log.Cyan(pairs[i+1]))
+		fmt.Fprintf(log.Output(), " %s  %s %s\n", log.Muted("│"), log.Pad(log.Blue(pairs[i]), 14), log.Amber(pairs[i+1]))
 	}
 	fmt.Fprintf(log.Output(), " %s\n\n", border)
 }

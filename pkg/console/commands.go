@@ -42,11 +42,11 @@ func (c *Console) cmdHelp(args []string) {
 		if !ok || cmd.desc == "" {
 			continue
 		}
-		output.Print("  %s %s\n", log.Pad(log.Cyan(name), 20), log.Gray(cmd.desc))
+		output.Print("  %s %s\n", log.Pad(log.Amber(name), 20), log.Muted(cmd.desc))
 	}
-	output.Print("  %s %s\n", log.Pad(log.Cyan("exit"), 20), log.Gray("Exit the console"))
+	output.Print("  %s %s\n", log.Pad(log.Amber("exit"), 20), log.Muted("Exit the console"))
 	output.Println()
-	output.Print("  %s %s\n", log.Gray("Aliases:"), log.Gray("run, rerun, rcheck, options, advanced, modules, ?"))
+	output.Print("  %s %s\n", log.Muted("Aliases:"), log.Muted("run, rerun, rcheck, options, advanced, modules, ?"))
 	output.Println()
 }
 
@@ -163,8 +163,8 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			if len(info.Targets) <= 1 {
 				// Single target or no target: ID on the module line.
 				output.Print("  %s  %s  %s  %s  %s\n",
-					log.Pad(log.Cyan(fmt.Sprintf("%d", globalIdx)), 3),
-					log.Pad(log.Cyan(e.shortName), nameW),
+					log.Pad(log.Amber(fmt.Sprintf("%d", globalIdx)), 3),
+					log.Pad(log.Amber(e.shortName), nameW),
 					log.Pad(reliabilityStyle(info.Reliability), relW),
 					log.Pad(desc, descW),
 					log.Yellow(cveStr),
@@ -174,7 +174,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				// Multiple targets: module line with no ID, target IDs in # column.
 				output.Print("  %s  %s  %s  %s  %s\n",
 					log.Pad("", 3),
-					log.Pad(log.Cyan(e.shortName), nameW),
+					log.Pad(log.Amber(e.shortName), nameW),
 					log.Pad(reliabilityStyle(info.Reliability), relW),
 					log.Pad(desc, descW),
 					log.Yellow(cveStr),
@@ -200,10 +200,10 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 						arches = " (" + strings.Join(t.Arches, ", ") + ")"
 					}
 					output.Print("  %s  %s %s  %s\n",
-						log.Pad(log.Cyan(fmt.Sprintf("%d", globalIdx)), 3),
+						log.Pad(log.Amber(fmt.Sprintf("%d", globalIdx)), 3),
 						log.Muted(branch),
-						log.Pad(log.Gray(t.Type), typeW),
-						log.Gray(tName+arches),
+						log.Pad(log.Muted(t.Type), typeW),
+						log.Muted(tName+arches),
 					)
 					globalIdx++
 				}
@@ -262,9 +262,9 @@ func (c *Console) cmdRank() {
 	)
 	for i, rank := range rankings {
 		output.Print("  %s  %s  %s  %s\n",
-			log.Pad(log.Cyan(fmt.Sprintf("%d", i+1)), 5),
+			log.Pad(log.Amber(fmt.Sprintf("%d", i+1)), 5),
 			log.Pad(log.White(rank.Name), 20),
-			log.Pad(log.Cyan(fmt.Sprintf("%d", rank.Modules)), 10),
+			log.Pad(log.Amber(fmt.Sprintf("%d", rank.Modules)), 10),
 			log.Yellow(fmt.Sprintf("%d", rank.CVEs)),
 		)
 	}
@@ -388,27 +388,27 @@ func (c *Console) cmdInfo(args []string) {
 
 	info := mod.Info()
 	output.Println()
-	output.Print("  %s  %s\n", log.Cyan("Name:"), sdk.NameOf(mod))
-	output.Print("  %s  %s\n", log.Cyan("Description:"), info.Title())
+	output.Print("  %s  %s\n", log.Amber("Name:"), sdk.NameOf(mod))
+	output.Print("  %s  %s\n", log.Amber("Description:"), info.Title())
 	if info.Detail != "" {
 		output.Print("\n%s\n", info.Detail)
 	}
-	output.Print("  %s  %s\n", log.Cyan("Authors:"), info.AuthorNames())
-	output.Print("  %s  %s\n", log.Cyan("Reliability:"), reliabilityStyle(info.Reliability))
-	output.Print("  %s  %s\n", log.Cyan("Check:"), checkSupportStr(mod))
-	output.Print("  %s  %s\n", log.Cyan("CVEs:"), strings.Join(info.CVEs(), ", "))
+	output.Print("  %s  %s\n", log.Amber("Authors:"), info.AuthorNames())
+	output.Print("  %s  %s\n", log.Amber("Reliability:"), reliabilityStyle(info.Reliability))
+	output.Print("  %s  %s\n", log.Amber("Check:"), checkSupportStr(mod))
+	output.Print("  %s  %s\n", log.Amber("CVEs:"), strings.Join(info.CVEs(), ", "))
 	if len(info.References) > 0 {
-		output.Print("  %s\n", log.Cyan("References:"))
+		output.Print("  %s\n", log.Amber("References:"))
 		for _, ref := range info.References {
 			output.Print("    - %s\n", log.Blue(ref.URL()))
 		}
 	}
-	output.Print("  %s  %s\n", log.Cyan("Targets:"), strings.Join(info.TargetStrings(), ", "))
+	output.Print("  %s  %s\n", log.Amber("Targets:"), strings.Join(info.TargetStrings(), ", "))
 	if len(info.Queries) > 0 {
 		output.Println()
-		output.Print("  %s\n", log.Cyan("Queries:"))
+		output.Print("  %s\n", log.Amber("Queries:"))
 		for _, q := range info.Queries {
-			output.Print("    %s %s\n", log.Pad(log.Gray(q.Engine+":"), 12), q.URL())
+			output.Print("    %s %s\n", log.Pad(log.Muted(q.Engine+":"), 12), q.URL())
 		}
 	}
 	output.Println()
@@ -558,7 +558,7 @@ func (c *Console) suggestOption(name string) {
 		}
 	}
 	if closest != "" {
-		output.Error("Unknown option: %s. Did you mean %s?", name, log.Cyan(closest))
+		output.Error("Unknown option: %s. Did you mean %s?", name, log.Amber(closest))
 	} else {
 		output.Error("Unknown option: %s", name)
 	}
@@ -606,7 +606,7 @@ func (c *Console) cmdResource(args []string) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		output.Print("  %s\n", log.Gray(line))
+		output.Print("  %s\n", log.Muted(line))
 		if c.exec(line) {
 			return
 		}
@@ -731,7 +731,7 @@ func (c *Console) labStatus() {
 	}
 	output.Println()
 	for _, l := range labs {
-		output.Print("  %s\n", log.Cyan(l.Name))
+		output.Print("  %s\n", log.Amber(l.Name))
 		for _, svc := range l.Services {
 			state := log.Green(svc.State)
 			if svc.State != "running" {
@@ -739,7 +739,7 @@ func (c *Console) labStatus() {
 			}
 			ports := ""
 			if svc.Ports != "" {
-				ports = " " + log.Gray(svc.Ports)
+				ports = " " + log.Muted(svc.Ports)
 			}
 			output.Print("    %s  %s  %s%s\n",
 				log.Pad(svc.Name, 20),

@@ -28,7 +28,7 @@ func (c *Console) showOptions(advanced bool) {
 	}
 
 	output.Println()
-	output.Print("  %s: %s\n", label, log.Cyan(sdk.NameOf(c.mod)))
+	output.Print("  %s: %s\n", label, log.Amber(sdk.NameOf(c.mod)))
 	output.Println(divider)
 	output.Print("  %s  %s  %s  %s\n",
 		log.Pad(log.UnderlineText("Option"), 18),
@@ -50,10 +50,10 @@ func (c *Console) showOptions(advanced bool) {
 			required = optReq
 		}
 		output.Print("  %s  %s  %s  %s\n",
-			log.Pad(log.Cyan(opt.Name), 18),
+			log.Pad(log.Amber(opt.Name), 18),
 			log.Pad(displayVal, 30),
 			log.Pad(required, 8),
-			log.Gray(opt.Desc),
+			log.Muted(opt.Desc),
 		)
 	}
 	output.Println()
@@ -79,7 +79,7 @@ func (c *Console) showTargets() {
 	)
 	for i, t := range targets {
 		marker := "  "
-		idStr := log.Cyan(strconv.Itoa(i))
+		idStr := log.Amber(strconv.Itoa(i))
 		name := t.Name
 		if name == "" {
 			name = t.Platform
@@ -98,7 +98,7 @@ func (c *Console) showTargets() {
 			log.Pad(idStr, 4),
 			log.Pad(name, 30),
 			log.Pad(t.Type, 10),
-			log.Gray(arches),
+			log.Muted(arches),
 		)
 	}
 	output.Println()
@@ -124,12 +124,12 @@ func (c *Console) showPayloads() {
 	current := c.getOpt("PAYLOAD")
 	for _, pl := range payloads {
 		marker := "  "
-		displayName := log.Cyan(pl.Name)
+		displayName := log.Amber(pl.Name)
 		if pl.Name == current {
 			marker = log.Green("* ")
 			displayName = log.Green(pl.Name)
 		}
-		output.Print("%s%s  %s\n", marker, log.Pad(displayName, 35), log.Gray(pl.Description))
+		output.Print("%s%s  %s\n", marker, log.Pad(displayName, 35), log.Muted(pl.Description))
 	}
 	output.Println()
 }
@@ -139,7 +139,7 @@ func reliabilityStyle(rel sdk.Reliability) string {
 	case rel >= sdk.Certain:
 		return log.Green(rel.String())
 	case rel >= sdk.VeryReliable:
-		return log.Cyan(rel.String())
+		return log.Amber(rel.String())
 	case rel >= sdk.Reliable:
 		return log.Blue(rel.String())
 	case rel >= sdk.Typical:
@@ -155,7 +155,7 @@ func checkSupportStr(m sdk.Exploit) string {
 	if sdk.CanCheck(m) {
 		return log.Green("yes")
 	}
-	return log.Gray("no")
+	return log.Muted("no")
 }
 
 func (c *Console) showMissing() {
@@ -176,7 +176,7 @@ func (c *Console) showMissing() {
 	}
 
 	output.Println()
-	output.Print("  %s: %s\n", "Missing options", log.Cyan(sdk.NameOf(c.mod)))
+	output.Print("  %s: %s\n", "Missing options", log.Amber(sdk.NameOf(c.mod)))
 	output.Println(divider)
 	output.Print("  %s  %s\n",
 		log.Pad(log.UnderlineText("Option"), 18),
@@ -185,7 +185,7 @@ func (c *Console) showMissing() {
 	for _, opt := range missing {
 		output.Print("  %s  %s\n",
 			log.Pad(log.Red(opt.Name), 18),
-			log.Gray(opt.Desc),
+			log.Muted(opt.Desc),
 		)
 	}
 	output.Println()
@@ -206,7 +206,7 @@ func (c *Console) showGlobals() {
 	)
 	for name, val := range c.globals {
 		output.Print("  %s  %s\n",
-			log.Pad(log.Cyan(name), 18),
+			log.Pad(log.Amber(name), 18),
 			log.White(val),
 		)
 	}

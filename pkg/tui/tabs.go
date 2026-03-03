@@ -332,7 +332,7 @@ func (m consoleModel) renderSessionsTab(h int) string {
 		}
 		lines = append(lines, fmt.Sprintf("%s%s  %s  %s",
 			prefix,
-			log.Pad(log.Cyan(strconv.Itoa(sess.ID)), 6),
+			log.Pad(log.Amber(strconv.Itoa(sess.ID)), 6),
 			log.Pad(log.White(sess.RemoteAddr), 25),
 			log.White(sess.CreatedAt.Format("15:04:05")),
 		))
