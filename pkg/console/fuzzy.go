@@ -3,7 +3,6 @@ package console
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -132,45 +131,3 @@ var titleStyle = lipgloss.NewStyle().
 	Bold(true).
 	Padding(0, 1)
 
-// FuzzySelect opens an interactive fuzzy finder and returns the selected item name.
-// Returns empty string and false if aborted.
-func FuzzySelect(title string, items []fuzzyItem) (string, bool) {
-	if len(items) == 0 {
-		return "", false
-	}
-
-	listItems := make([]list.Item, len(items))
-	for i, item := range items {
-		listItems[i] = item
-	}
-
-	delegate := newFuzzyDelegate()
-	listModel := list.New(listItems, delegate, 70, 15)
-	listModel.Title = title
-	listModel.Styles.Title = titleStyle
-	listModel.SetFilteringEnabled(true)
-	listModel.SetShowStatusBar(true)
-	listModel.SetShowHelp(true)
-	listModel.FilterInput.Prompt = "  filter: "
-	listModel.FilterInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	listModel.KeyMap.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back"))
-
-	// Start in filter mode for immediate typing
-	listModel.SetFilteringEnabled(true)
-
-	model := fuzzyModel{list: listModel}
-	program := tea.NewProgram(model, tea.WithOutput(os.Stderr))
-	result, err := program.Run()
-	if err != nil {
-		return "", false
-	}
-
-	fm := result.(fuzzyModel)
-	if fm.aborted || fm.selected == "" {
-		return "", false
-	}
-
-	// Clear the line after selection
-	fmt.Fprint(os.Stderr, strings.Repeat("\n", 1))
-	return fm.selected, true
-}

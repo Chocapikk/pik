@@ -308,10 +308,17 @@ func (m consoleModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 
 		case tabConfig:
+			if isScroll {
+				if msg.Button == tea.MouseButtonWheelUp {
+					m.opts.table.MoveUp(1)
+				} else {
+					m.opts.table.MoveDown(1)
+				}
+				return m, nil
+			}
 			if isClick && contentY >= 3 {
 				optIdx := contentY - 3
-				maxIdx := m.visibleOptionCount() + len(m.actionButtons()) - 1
-				if optIdx >= 0 && optIdx <= maxIdx {
+				if optIdx >= 0 && optIdx < m.visibleOptionCount() {
 					m.opts.table.SetCursor(optIdx)
 				}
 			}
@@ -614,8 +621,4 @@ func (m consoleModel) outputHeight() int {
 	return h
 }
 
-// contentHeight kept for compatibility.
-func (m consoleModel) contentHeight() int {
-	return m.tabHeight()
-}
 

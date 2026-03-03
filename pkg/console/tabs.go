@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Chocapikk/pik/pkg/log"
+	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -51,6 +52,8 @@ type optionsPanel struct {
 	showAdvanced  bool
 	labMenuOpen   bool
 	labMenuCursor int
+	btnMode       bool
+	btnCursor     int
 }
 
 func newOptionsPanel() optionsPanel {
@@ -166,19 +169,12 @@ func (m consoleModel) renderConfigTab(h int) string {
 	if len(btns) > 0 {
 		lines = append(lines, "")
 		var rendered []string
-		btnBase := m.visibleOptionCount()
 		for i, btn := range btns {
 			style := btnStyle
-			if m.tuiFocused && m.activeTab == tabConfig && m.opts.table.Cursor() >= m.visibleOptionCount() {
-				// If cursor is past options, highlight the right button
-				_ = btnBase
-			}
-			// Highlight based on cursor position relative to option count
-			if m.opts.table.Focused() && i == 0 {
-				// Simple: first button style when table has no selection past options
+			if m.opts.btnMode && i == m.opts.btnCursor {
+				style = btnFocusedStyle
 			}
 			rendered = append(rendered, style.Render(btn))
-			_ = i
 		}
 		lines = append(lines, "  "+strings.Join(rendered, "  "))
 
@@ -400,6 +396,7 @@ func (m *consoleModel) resetBrowserFilter() {
 }
 
 func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.opts.table.Focus()
 	if m.opts.editing {
 		return m.updateConfigEditing(msg)
 	}
@@ -429,12 +426,46 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	optCount := m.visibleOptionCount()
+	btns := m.actionButtons()
+	inButtons := m.opts.table.Cursor() >= optCount-1 && m.opts.btnMode
+
 	switch msg.Type {
-	case tea.KeyUp, tea.KeyDown:
+	case tea.KeyDown:
+		if !m.opts.btnMode && m.opts.table.Cursor() >= optCount-1 && len(btns) > 0 {
+			m.opts.btnMode = true
+			m.opts.btnCursor = 0
+			return m, nil
+		}
+		if m.opts.btnMode {
+			return m, nil
+		}
 		var cmd tea.Cmd
 		m.opts.table, cmd = m.opts.table.Update(msg)
 		return m, cmd
+	case tea.KeyUp:
+		if m.opts.btnMode {
+			m.opts.btnMode = false
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.opts.table, cmd = m.opts.table.Update(msg)
+		return m, cmd
+	case tea.KeyLeft:
+		if m.opts.btnMode && m.opts.btnCursor > 0 {
+			m.opts.btnCursor--
+		}
+		return m, nil
+	case tea.KeyRight:
+		if m.opts.btnMode && m.opts.btnCursor < len(btns)-1 {
+			m.opts.btnCursor++
+		}
+		return m, nil
 	case tea.KeyEnter:
+		if m.opts.btnMode {
+			_ = inButtons
+			return m, m.handleActionButton(m.opts.btnCursor)
+		}
 		cursor := m.opts.table.Cursor()
 		if cursor < m.visibleOptionCount() {
 			opt := m.visibleOptionAt(cursor)
@@ -442,8 +473,19 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if strings.EqualFold(opt.Name, "PAYLOAD") {
-				// Open fuzzy picker for payloads
-				m.console.selectPayload()
+				// Build payload fuzzy select directly (no Send, avoids deadlock)
+				platform := ""
+				if m.console.mod != nil {
+					platform = m.console.mod.Info().Platform()
+				}
+				payloads := payload.ListForPlatform(platform)
+				items := make([]fuzzyItem, len(payloads))
+				for i, pl := range payloads {
+					items[i] = fuzzyItem{name: pl.Name, desc: pl.Description}
+				}
+				m.mode = modeFuzzy
+				m.fuzzy = newFuzzyModel("Select payload", items)
+				m.fuzzy.context = "payload"
 				return m, nil
 			}
 			m.opts.editing = true
@@ -577,6 +619,9 @@ func (m *consoleModel) refreshConfig() {
 	m.opts.editing = false
 	m.opts.editor.Blur()
 	m.opts.labMenuOpen = false
+	m.opts.btnMode = false
+	m.opts.btnCursor = 0
+	m.opts.table.Focus()
 	m.refreshOptionsTable()
 }
 
@@ -593,6 +638,3 @@ func padToHeight(content string, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m consoleModel) sessionInButtons() bool {
-	return m.sessionBtnMode
-}
