@@ -14,7 +14,9 @@ sdk/                Types, interfaces, constants (source of truth)
 
 pkg/cli/            CLI + standalone runner
   standalone.go     RunStandaloneWith() + init() registers runner via sdk.SetRunner()
-  cmd_lab.go        `pik lab start|stop|status|run` subcommands
+  build.go          `pik build` + `pik generate` (standalone binary/source generation)
+  cmd_lab.go        `pik lab start|stop|status|run` subcommands (framework)
+  cmd_lab_standalone.go  Standalone lab subcommands (no module arg needed)
 
 pkg/console/        Business logic + readline REPL
   console.go        Console struct, command registry, exec dispatcher
@@ -41,7 +43,7 @@ pkg/types/          Shared types between console and tui (breaks import cycle)
 pkg/runner/         Execution engine
   single.go         RunSingle: resolveTarget -> deliverPayload or deliverCmdStager
   scanner.go        Multi-target scanning with thread pool
-  context.go        BuildContext() shared between console and runner
+  context.go        BuildContext() shared between console and runner (wires bridges via sdk factories)
   options.go        Enrichers: enrichBase, enrichC2, enrichCmdStager, enrichScan
 
 pkg/lab/            Docker lab management (Docker Engine SDK, no shell-out)
@@ -55,10 +57,24 @@ pkg/c2/             C2 backends
   sliver/           Sliver gRPC integration (mTLS, staging, implant gen)
   session/          Session + Manager (accept loop, registry, Ctrl+Z background)
 
-pkg/http/           HTTP client
+pkg/protocol/http/  HTTP client (registers SendFactory + PoolFactory via init())
   client.go         Session, Run, AutoScheme (HTTPS probe), WithProxy, NormalizeURI
-  debug.go          HTTP request/response tracing (--debug flag)
-  option.go         HTTP enricher (SSL, USER_AGENT, TARGETURI - all advanced)
+  debug.go          HTTP request/response tracing (HTTP_TRACE option)
+  option.go         init(): registers sdk.SetSendFactory + sdk.SetPoolFactory
+
+pkg/protocol/tcp/   Raw TCP client (registers DialFactory via init())
+  client.go         Session, Dial, FromModule, Send, Recv, SendRecv
+  debug.go          TCP hex dump tracing (TCP_TRACE option)
+  option.go         init(): registers sdk.SetDialFactory
+
+pkg/enricher/       Protocol option enrichers (imported by runner)
+  enricher.go       Init: registers HTTP + TCP option enrichers
+  http.go           HTTP enricher (SSL, USER_AGENT, TARGETURI, HTTP_TRACE - all advanced)
+  tcp.go            TCP enricher (TCP_TIMEOUT, TCP_TRACE - all advanced)
+
+pkg/encode/         Encoding helpers
+  encode.go         Base64, Hex, URL, UTF16LE, XOR, ROT13
+  binary.go         Buffer (fluent binary packing: Byte, Uint16/32/64, String, NameList, Zeroes)
 
 pkg/payload/        Payload generators
   reverse.go        TCP, TLS, HTTP reverse shell one-liners
@@ -74,8 +90,10 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 
 - Types in `sdk/`, all internal packages import `sdk`. No re-export, no codegen.
 - `sdk.Run()` uses late binding: `pkg/cli.init()` calls `sdk.SetRunner(RunStandaloneWith)`.
-- Standalone binaries need: `import "sdk"` + `import _ "pkg/cli"`. Add `_ "pkg/lab"` + `sdk.WithLab()` for lab support.
-- Option enrichers (`sdk.RegisterEnricher`) auto-inject LHOST, LPORT, C2, HTTP options etc.
+- Standalone binaries need: `import "sdk"` + `import _ "pkg/cli"` + `import _ "pkg/protocol/<proto>"`. Add `_ "pkg/lab"` + `sdk.WithLab()` for lab support.
+- Option enrichers (`sdk.RegisterEnricher`) auto-inject LHOST, LPORT, C2, HTTP/TCP options etc. Enrichers in `pkg/enricher/`, protocol factories in `pkg/protocol/*/option.go`.
+- Protocol late binding: `sdk.SetSendFactory` (HTTP), `sdk.SetDialFactory` (TCP), `sdk.SetPoolFactory` (HTTP pooling). Protocols register via `init()`. Only imported protocols are compiled into the binary.
+- `pik build <module>`: compiles standalone binary. `pik generate <module>`: emits source code. Both auto-detect protocol from module path.
 - Advanced options via `sdk.OptAdvanced()`. Only TARGET, LHOST, LPORT, PAYLOAD in `show options`.
 - Module request paths are relative (`"install.php"` not `"/install.php"`). NormalizeURI handles TARGETURI.
 - Target types are module-defined strings (e.g. `"cmd"`, `"dropper"`). Runner dispatches on type, module switches in Exploit().
@@ -85,8 +103,13 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Console `use <id>` selects module + target by global index from `list`.
 - C2 backends self-register via `c2.RegisterFactory()` in `init()`.
 - Constants: `cmdstager.DefaultLineMax` (2047), `cmdstager.DefaultFlavor` (printf).
+- HTTP modules use `run.Send(sdk.Request{...})`. TCP modules use `run.Dial()` -> `sdk.Conn` (Send/Recv/SendRecv/Close).
+- Binary packing: `sdk.NewBuffer().Byte(0x14).Uint32(val).String("data").NameList("a","b").Build()` - generic fluent builder for crafting protocol messages.
+- Protocol tracing: `HTTP_TRACE=true` or `TCP_TRACE=true` as advanced options (not --debug).
 - HTTP client preserves raw header casing (no canonicalization). Some servers are case-sensitive.
-- Author: `sdk.Author{Name, Handle, Email}`. Email must use `<user[at]domain>` format, Register() panics on raw @.
+- Author: `sdk.Author{Name, Handle, Email, Company}`. Email must use `<user[at]domain>` format, Register() panics on raw @.
+- References: `sdk.CVE("2025-XXXXX")`, `sdk.GHSA("xxxx-yyyy-zzzz")` (global) or `sdk.GHSA("xxxx-yyyy-zzzz", "owner/repo")` (repo-scoped).
+- String helpers: `sdk.Contains(s, sub)`, `sdk.ContainsI(s, sub)` (case-insensitive).
 - Lab: `sdk.NewLabService(name, image, ports...).WithEnv(k, v).WithHealthcheck(cmd)`. `sdk.Rand("label")` for random shared creds.
 - Lab internals: late binding via `sdk.SetLabManager()`, Docker SDK isolated in `pkg/lab`, random host ports, 127.0.0.1 only, DNS aliases by service name, labels for tracking.
 - `pik lab run <module>`: start lab, TCP wait, probe Check() until app ready, auto LHOST (docker gateway), exploit.
@@ -113,11 +136,19 @@ make vet                      # go vet ./...
 
 Test exploits against lab containers:
 ```bash
-pik lab run langflow_validate_code_rce          # cold start to shell, zero config
-pik lab start langflow_validate_code_rce        # just start the lab
+pik lab run langflow_validate_code_rce          # HTTP module: cold start to shell
+pik lab run erlang_ssh_rce                      # TCP module: cold start to shell
+pik lab start erlang_ssh_rce                    # just start the lab
 pik lab status                                  # list running labs
-pik lab stop langflow_validate_code_rce         # tear down
-go run ./cmd/pik run opendcim_sqli_rce -t 127.0.0.1:18091 -s LHOST=<ip> -s LPORT=4444
+pik lab stop erlang_ssh_rce                     # tear down
+```
+
+Generate standalone exploits:
+```bash
+pik build erlang_ssh_rce                        # compile standalone binary
+pik build erlang_ssh_rce -o ssh_exploit         # custom output name
+pik generate erlang_ssh_rce                     # emit source code (no compile)
+pik generate erlang_ssh_rce -o ./my_exploit     # custom output directory
 ```
 
 ## Commit style
