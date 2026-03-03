@@ -8,9 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Chocapikk/pik/sdk"
-	pikhttp "github.com/Chocapikk/pik/pkg/http"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 // --- Types ---
@@ -44,7 +43,7 @@ func (s *Scanner) Run(ctx context.Context) []Result {
 		return nil
 	}
 
-	ctx = pikhttp.WithPool(ctx, s.Threads, s.BaseParams.Get("PROXIES"))
+	ctx = sdk.WithPool(ctx, s.Threads, s.BaseParams.Get("PROXIES"))
 	total := int64(len(s.Targets))
 
 	results := make([]Result, total)

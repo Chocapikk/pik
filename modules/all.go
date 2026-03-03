@@ -8,6 +8,11 @@ import (
 	// Exploit modules — HTTP
 	_ "github.com/Chocapikk/pik/modules/exploit/http/linux"
 	_ "github.com/Chocapikk/pik/modules/exploit/http/multi"
+	_ "github.com/Chocapikk/pik/pkg/protocol/http"
+
+	// Exploit modules — TCP
+	_ "github.com/Chocapikk/pik/modules/exploit/tcp/multi"
+	_ "github.com/Chocapikk/pik/pkg/protocol/tcp"
 
 	// C2 backends
 	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"

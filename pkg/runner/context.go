@@ -1,14 +1,11 @@
 package runner
 
 import (
-	"net/url"
-	"time"
-
-	"github.com/Chocapikk/pik/sdk"
-	pikhttp "github.com/Chocapikk/pik/pkg/http"
+	_ "github.com/Chocapikk/pik/pkg/enricher" // register all protocol enrichers
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/pkg/text"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 // BuildContext creates a wired sdk.Context from params and payload command.
@@ -22,51 +19,7 @@ func BuildContext(params sdk.Params, payloadCmd string) *sdk.Context {
 	ctx.Base64BashFn = payload.Base64Bash
 	ctx.CommentFn = payload.CommentTrail
 	ctx.RandTextFn = text.RandText
-	ctx.SendFn = httpBridge(params)
+	ctx.SendFn = sdk.SendWith(params)
+	ctx.DialFn = func() (sdk.Conn, error) { return sdk.DialWith(params) }
 	return ctx
-}
-
-func httpBridge(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
-	run := pikhttp.FromModule(params)
-	return func(req sdk.Request) (*sdk.Response, error) {
-		timeout := time.Duration(req.Timeout) * time.Second
-		if req.FireAndForget && timeout == 0 {
-			timeout = 3 * time.Second
-		}
-
-		resp, err := run.Send(pikhttp.Request{
-			Method:      req.Method,
-			Path:        req.Path,
-			Query:       url.Values(req.Query),
-			Form:        url.Values(req.Form),
-			Body:        req.BodyReader(),
-			ContentType: req.ContentType,
-			Headers:     req.Headers,
-			Timeout:     timeout,
-			NoRedirect:  req.NoRedirect,
-		})
-
-		if req.FireAndForget {
-			if resp != nil && resp.Body != nil {
-				resp.Body.Close()
-			}
-			return &sdk.Response{StatusCode: 0}, nil
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		// Copy response headers to sdk.Response.
-		headers := make(map[string]string)
-		for k, vals := range resp.Header {
-			if len(vals) > 0 {
-				headers[k] = vals[0]
-			}
-		}
-
-		r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body, Headers: headers}
-		r.SetContainsFn(resp.ContainsAny)
-		return r, nil
-	}
 }

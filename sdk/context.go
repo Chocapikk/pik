@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -17,6 +18,7 @@ type Context struct {
 
 	// Function hooks injected by the runner.
 	SendFn       func(Request) (*Response, error)
+	DialFn       func() (Conn, error)
 	StatusFn     func(string, ...any)
 	SuccessFn    func(string, ...any)
 	ErrorFn      func(string, ...any)
@@ -33,6 +35,43 @@ func NewContext(values map[string]string, payload string) *Context {
 
 // --- HTTP ---
 
+// SendFactory creates a SendFn from module params.
+// Registered by pkg/protocol/http via SetSendFactory.
+type SendFactory func(Params) func(Request) (*Response, error)
+
+var sendFactory SendFactory
+
+// SetSendFactory registers the HTTP send implementation.
+// Called by pkg/protocol/http's init().
+func SetSendFactory(f SendFactory) { sendFactory = f }
+
+// SendWith creates an HTTP send function using the registered factory.
+func SendWith(params Params) func(Request) (*Response, error) {
+	if sendFactory == nil {
+		return nil
+	}
+	return sendFactory(params)
+}
+
+// PoolFactory configures connection pooling on a context for concurrent scanning.
+// Registered by protocol packages that support pooling (e.g. HTTP).
+type PoolFactory func(ctx context.Context, threads int, proxy string) context.Context
+
+var poolFactory PoolFactory
+
+// SetPoolFactory registers the connection pool implementation.
+func SetPoolFactory(f PoolFactory) { poolFactory = f }
+
+// WithPool applies connection pooling if a factory is registered.
+// Returns ctx unchanged if no pool factory is available (e.g. TCP modules).
+func WithPool(ctx context.Context, threads int, proxy string) context.Context {
+	if poolFactory != nil {
+		return poolFactory(ctx, threads, proxy)
+	}
+	return ctx
+}
+
+// Send dispatches an HTTP request through the runner's HTTP bridge.
 func (c *Context) Send(req Request) (*Response, error) {
 	if c.SendFn != nil {
 		return c.SendFn(req)
@@ -40,10 +79,56 @@ func (c *Context) Send(req Request) (*Response, error) {
 	return nil, fmt.Errorf("no HTTP client configured")
 }
 
+// --- TCP ---
+
+// Conn is a raw TCP connection returned by Dial.
+type Conn interface {
+	Send([]byte) error
+	Recv(int) ([]byte, error)
+	SendRecv(data []byte, recvSize int) ([]byte, error)
+	Close() error
+}
+
+// DialFactory creates a Conn from module params.
+// Registered by pkg/protocol/tcp via SetDialFactory.
+type DialFactory func(Params) (Conn, error)
+
+var dialFactory DialFactory
+
+// SetDialFactory registers the TCP dial implementation.
+// Called by pkg/protocol/tcp's init().
+func SetDialFactory(f DialFactory) { dialFactory = f }
+
+// DialWith creates a Conn using the registered factory.
+func DialWith(params Params) (Conn, error) {
+	if dialFactory == nil {
+		return nil, fmt.Errorf("no TCP client registered (import pkg/protocol/tcp)")
+	}
+	return dialFactory(params)
+}
+
+// Dial opens a raw TCP connection to the target.
+func (c *Context) Dial() (Conn, error) {
+	if c.DialFn != nil {
+		return c.DialFn()
+	}
+	return nil, fmt.Errorf("no TCP client configured")
+}
+
 // --- Params ---
 
 func (c *Context) Get(key string) string { return c.values[key] }
 func (c *Context) Payload() string       { return c.payload }
+
+// Params returns an sdk.Params built from the context values.
+// Used by TCP modules to pass to tcp.FromModule().
+func (c *Context) Params() Params {
+	cp := make(map[string]string, len(c.values))
+	for k, v := range c.values {
+		cp[k] = v
+	}
+	return NewParams(context.Background(), cp)
+}
 
 // Commands returns the CmdStager commands set by the runner.
 // Empty when in single-shot mode.
