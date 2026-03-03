@@ -48,7 +48,7 @@ func (m *ErlangSSHRCE) Info() sdk.Info {
 		},
 		Lab: sdk.Lab{
 			Services: []sdk.Service{
-				sdk.NewLabService("sshd", "vulhub/erlang:27.3.2-with-ssh", "2222:2222"),
+				sdk.NewLabService("sshd", "vulhub/erlang:27.3.2-with-ssh", "2222"),
 			},
 		},
 		Targets: []sdk.Target{

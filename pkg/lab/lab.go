@@ -328,7 +328,7 @@ func DockerGateway() string {
 
 // toDocker converts an sdk.Service to Docker SDK types.
 func toDocker(svc sdk.Service, labName string, randoms map[string]string) (*container.Config, *container.HostConfig) {
-	exposed, bindings, _ := nat.ParsePortSpecs(svc.Ports)
+	exposed, bindings := parsePorts(svc.Ports)
 
 	cfg := &container.Config{
 		Image:        svc.Image,
@@ -346,16 +346,6 @@ func toDocker(svc sdk.Service, labName string, randoms map[string]string) (*cont
 			Interval:    5 * time.Second,
 			StartPeriod: 30 * time.Second,
 		}
-	}
-
-	// Force localhost + random host port. Avoids port conflicts
-	// and never exposes labs to the network.
-	for port, portBindings := range bindings {
-		for i := range portBindings {
-			portBindings[i].HostIP = "127.0.0.1"
-			portBindings[i].HostPort = "0"
-		}
-		bindings[port] = portBindings
 	}
 
 	hostCfg := &container.HostConfig{
@@ -445,6 +435,23 @@ func teardown(ctx context.Context, cli *client.Client, name string) {
 	for _, n := range networks {
 		cli.NetworkRemove(ctx, n.ID)
 	}
+}
+
+// parsePorts converts simple port strings ("2222", "80") to Docker port structs.
+// Always binds to 127.0.0.1 with a random host port.
+func parsePorts(ports []string) (nat.PortSet, nat.PortMap) {
+	exposed := nat.PortSet{}
+	bindings := nat.PortMap{}
+	for _, p := range ports {
+		// Strip "host:" prefix if present (e.g. "2222:2222" -> "2222")
+		if i := strings.LastIndex(p, ":"); i >= 0 {
+			p = p[i+1:]
+		}
+		cp := nat.Port(p + "/tcp")
+		exposed[cp] = struct{}{}
+		bindings[cp] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: "0"}}
+	}
+	return exposed, bindings
 }
 
 func formatPorts(ports []container.Port) string {
