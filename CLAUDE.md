@@ -73,15 +73,9 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Constants: `cmdstager.DefaultLineMax` (2047), `cmdstager.DefaultFlavor` (printf).
 - HTTP client preserves raw header casing (no canonicalization). Some servers are case-sensitive.
 - Author: `sdk.Author{Name, Handle, Email}`. Email must use `<user[at]domain>` format, Register() panics on raw @.
-- Lab: `sdk.Service` uses plain Go types, `pkg/lab` converts to Docker SDK types at runtime.
-- Lab builder: `sdk.NewLabService(name, image, ports...).WithEnv(k, v).WithHealthcheck(cmd)`.
-- Lab ports: always randomized (host port 0), Target() queries Docker for actual mapped port.
-- Lab creds: `sdk.Rand("label")` placeholder, same label = same random value across services.
-- Lab manager: late binding via `sdk.SetLabManager()`, keeps Docker SDK out of standalone binaries.
+- Lab: `sdk.NewLabService(name, image, ports...).WithEnv(k, v).WithHealthcheck(cmd)`. `sdk.Rand("label")` for random shared creds.
+- Lab internals: late binding via `sdk.SetLabManager()`, Docker SDK isolated in `pkg/lab`, random host ports, 127.0.0.1 only, DNS aliases by service name, labels for tracking.
 - `pik lab run <module>`: start lab, TCP wait, probe Check() until app ready, auto LHOST (docker gateway), exploit.
-- Lab containers tracked by Docker labels (`pik.lab`, `pik.lab.service`), no filesystem state.
-- Lab network aliases: each service reachable by name (like compose) via `pik_<lab>` network.
-- Lab ports bind to 127.0.0.1 only (never exposed to network).
 
 ## Go conventions
 
