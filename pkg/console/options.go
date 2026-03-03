@@ -6,16 +6,12 @@ import (
 
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
+	"github.com/Chocapikk/pik/pkg/types"
 	"github.com/Chocapikk/pik/sdk"
 )
 
-type Option struct {
-	Name     string
-	Value    string
-	Required bool
-	Desc     string
-	Advanced bool
-}
+// Option is the shared option type.
+type Option = types.Option
 
 func (c *Console) initOptions() {
 	c.options = []Option{

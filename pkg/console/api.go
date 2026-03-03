@@ -5,6 +5,7 @@ import (
 
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/log"
+	"github.com/Chocapikk/pik/pkg/types"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -17,6 +18,12 @@ func New() *Console {
 
 // SetProgram sets the bubbletea program reference for message sending.
 func (c *Console) SetProgram(p *tea.Program) { c.program = p }
+
+// Program returns the bubbletea program reference.
+func (c *Console) Program() *tea.Program { return c.program }
+
+// SelectPayload triggers payload selection via fuzzy picker.
+func (c *Console) SelectPayload() { c.selectPayload() }
 
 // Exec runs a console command line. Returns true if the console should exit.
 func (c *Console) Exec(line string) bool { return c.exec(line) }
@@ -31,7 +38,6 @@ func (c *Console) SetOpt(name, value string) bool { return c.setOpt(name, value)
 func (c *Console) GetOpt(name string) string { return c.getOpt(name) }
 
 // Complete returns tab completion candidates for the given input.
-func (c *Console) Complete(input string) []string { return c.complete(input) }
 
 // ApplyFuzzyResult handles the result of a fuzzy selection.
 func (c *Console) ApplyFuzzyResult(context, selected string) { c.applyFuzzyResult(context, selected) }
@@ -87,5 +93,8 @@ func (c *Console) SendClear() {
 	}
 }
 
-// ClearOutputMsg requests the TUI to clear the output viewport.
-type ClearOutputMsg struct{}
+// Shared message type aliases.
+type ClearOutputMsg = types.ClearOutputMsg
+type FuzzyItem = types.FuzzyItem
+type FuzzySelectMsg = types.FuzzySelectMsg
+type SessionInteractMsg = types.SessionInteractMsg

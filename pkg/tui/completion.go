@@ -1,9 +1,10 @@
-package console
+package tui
 
 import (
 	"sort"
 	"strings"
 
+	"github.com/Chocapikk/pik/pkg/console"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -20,18 +21,28 @@ var showSubcommands = []string{
 
 var labSubcommands = []string{"start", "stop", "status", "run"}
 
-// complete returns completion candidates for the given input line.
-func (c *Console) complete(input string) []string {
+var defaultCommands = func() []string {
+	cmds := []string{
+		"help", "use", "back", "previous", "info",
+		"show", "set", "unset", "setg", "unsetg",
+		"check", "exploit", "run", "sessions", "kill",
+		"target", "resource", "list", "search", "rank",
+		"lab", "clear", "exit", "quit",
+	}
+	sort.Strings(cmds)
+	return cmds
+}()
+
+func completeInput(c *console.Console, input string) []string {
 	parts := strings.Fields(input)
 	trailing := strings.HasSuffix(input, " ")
 
-	// No input or completing the command name
 	if len(parts) == 0 || (len(parts) == 1 && !trailing) {
 		prefix := ""
 		if len(parts) == 1 {
 			prefix = strings.ToLower(parts[0])
 		}
-		return filterPrefix(c.commandNames(), prefix)
+		return filterPrefix(defaultCommands, prefix)
 	}
 
 	cmd := strings.ToLower(parts[0])
@@ -44,34 +55,16 @@ func (c *Console) complete(input string) []string {
 	case "use", "info", "search":
 		return filterPrefix(sdk.Names(), argPrefix)
 	case "set", "setg", "unset":
-		return filterPrefix(c.optionNames(), strings.ToUpper(argPrefix))
-	case "unsetg":
-		keys := make([]string, 0, len(c.globals))
-		for k := range c.globals {
-			keys = append(keys, k)
-		}
-		return filterPrefix(keys, strings.ToUpper(argPrefix))
+		return filterPrefix(c.OptionNames(), strings.ToUpper(argPrefix))
 	case "show":
 		return filterPrefix(showSubcommands, argPrefix)
 	case "lab":
 		return filterPrefix(labSubcommands, argPrefix)
 	case "help":
-		return filterPrefix(c.commandNames(), argPrefix)
+		return filterPrefix(defaultCommands, argPrefix)
 	}
 
 	return nil
-}
-
-func (c *Console) commandNames() []string {
-	var names []string
-	for name, cmd := range c.commands {
-		if cmd.desc != "" {
-			names = append(names, name)
-		}
-	}
-	names = append(names, "exit", "quit")
-	sort.Strings(names)
-	return names
 }
 
 func filterPrefix(items []string, prefix string) []string {

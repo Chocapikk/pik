@@ -1,23 +1,19 @@
-package console
+package tui
 
 import (
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Chocapikk/pik/pkg/types"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// fuzzyItem is an item in the fuzzy finder list.
-type fuzzyItem struct {
-	name string
-	desc string
-}
-
-func (i fuzzyItem) FilterValue() string { return i.name + " " + i.desc }
+// fuzzyItem is a type alias for the shared FuzzyItem.
+type fuzzyItem = types.FuzzyItem
 
 // fuzzyDelegate renders list items with custom styling.
 type fuzzyDelegate struct {
@@ -49,7 +45,7 @@ func (d fuzzyDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 	if index == m.Index() {
 		prefix, nameStyle = "> ", d.selectedStyle
 	}
-	rendered := nameStyle.Render(fi.name)
+	rendered := nameStyle.Render(fi.Name)
 	pad := 35 - lipgloss.Width(rendered)
 	if pad < 0 {
 		pad = 0
@@ -58,7 +54,7 @@ func (d fuzzyDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 		prefix,
 		rendered,
 		strings.Repeat(" ", pad),
-		d.descStyle.Render(fi.desc),
+		d.descStyle.Render(fi.Desc),
 	)
 
 	fmt.Fprint(w, line)
@@ -108,7 +104,7 @@ func (m fuzzyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
 			if item, ok := m.list.SelectedItem().(fuzzyItem); ok {
-				m.selected = item.name
+				m.selected = item.Name
 			}
 			return m, tea.Quit
 		case key.Matches(msg, key.NewBinding(key.WithKeys("esc", "ctrl+c"))):

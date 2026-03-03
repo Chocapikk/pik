@@ -1,4 +1,4 @@
-package console
+package tui
 
 import (
 	"fmt"
@@ -11,7 +11,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/Chocapikk/pik/pkg/console"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/pkg/types"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -26,9 +28,6 @@ const (
 
 type commandDoneMsg struct{}
 
-type sessionInteractMsg struct {
-	id int
-}
 type sessionDoneMsg struct{ err error }
 
 // sessionCmd wraps session InteractTUI for tea.Exec.
@@ -41,17 +40,12 @@ func (s *sessionCmd) SetStdin(_ io.Reader)  {}
 func (s *sessionCmd) SetStdout(_ io.Writer) {}
 func (s *sessionCmd) SetStderr(_ io.Writer) {}
 
-type fuzzySelectMsg struct {
-	context string
-	items   []fuzzyItem
-	title   string
-}
 
 
 // --- Model ---
 
 type consoleModel struct {
-	console   *Console
+	console   *console.Console
 	input     textinput.Model
 	viewport  viewport.Model
 	output    []string
@@ -82,7 +76,7 @@ type consoleModel struct {
 	quitting      bool
 }
 
-func newConsoleModel(c *Console) consoleModel {
+func NewModel(c *console.Console) consoleModel {
 	ti := textinput.New()
 	ti.Focus()
 	ti.Prompt = ""
@@ -107,8 +101,8 @@ func (m consoleModel) Init() tea.Cmd {
 func (m consoleModel) bannerCmd() tea.Cmd {
 	return func() tea.Msg {
 		output.Status("pik - exploit framework")
-		if m.console.mod != nil {
-			output.Success("Using %s - %s", sdk.NameOf(m.console.mod), m.console.mod.Info().Title())
+		if m.console.Mod() != nil {
+			output.Success("Using %s - %s", sdk.NameOf(m.console.Mod()), m.console.Mod().Info().Title())
 		}
 		return nil
 	}
@@ -141,7 +135,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return m, nil
 
-	case ClearOutputMsg:
+	case types.ClearOutputMsg:
 		m.output = nil
 		m.viewport.SetContent("")
 		return m, nil
@@ -151,14 +145,14 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshConfig()
 		return m, nil
 
-	case sessionInteractMsg:
-		handler := m.console.sessionHandler()
+	case types.SessionInteractMsg:
+		handler := m.console.SessionHandler()
 		if handler == nil {
 			return m, nil
 		}
 		sessions := handler.Sessions()
 		for _, sess := range sessions {
-			if sess.ID == msg.id {
+			if sess.ID == msg.ID {
 				return m, tea.Exec(&sessionCmd{session: sess}, func(err error) tea.Msg {
 					return sessionDoneMsg{err: err}
 				})
@@ -170,10 +164,10 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Re-enable mouse after tea.Exec returns
 		return m, func() tea.Msg { return tea.EnableMouseAllMotion() }
 
-	case fuzzySelectMsg:
+	case types.FuzzySelectMsg:
 		m.mode = modeFuzzy
-		m.fuzzy = newFuzzyModel(msg.title, msg.items)
-		m.fuzzy.context = msg.context
+		m.fuzzy = newFuzzyModel(msg.Title, msg.Items)
+		m.fuzzy.context = msg.Context
 		return m, nil
 
 	case tea.KeyMsg:
@@ -326,7 +320,7 @@ func (m consoleModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 		case tabSessions:
 			if isClick && contentY >= 2 {
-				handler := m.console.sessionHandler()
+				handler := m.console.SessionHandler()
 				if handler != nil {
 					sessions := handler.Sessions()
 					sessIdx := contentY - 2
@@ -501,7 +495,7 @@ func (m consoleModel) handleTab() (tea.Model, tea.Cmd) {
 	if m.compState != nil && m.compState.prefix == input {
 		m.compState.index = (m.compState.index + 1) % len(m.compState.matches)
 	} else {
-		matches := m.console.complete(input)
+		matches := completeInput(m.console, input)
 		if len(matches) == 0 {
 			return m, nil
 		}
@@ -531,7 +525,7 @@ func (m consoleModel) updateFuzzy(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if item, ok := m.fuzzy.list.SelectedItem().(fuzzyItem); ok {
 				ctx := m.fuzzy.context
 				m.mode = modeNormal
-				m.console.applyFuzzyResult(ctx, item.name)
+				m.console.ApplyFuzzyResult(ctx, item.Name)
 				m.refreshConfig()
 				if ctx == "module" {
 					m.activeTab = tabConfig
@@ -566,7 +560,7 @@ func (m consoleModel) isAtTopOfTab() bool {
 func (m consoleModel) execCmd(line string) tea.Cmd {
 	c := m.console
 	return func() tea.Msg {
-		c.exec(line)
+		c.Exec(line)
 		return commandDoneMsg{}
 	}
 }

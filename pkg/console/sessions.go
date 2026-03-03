@@ -21,7 +21,7 @@ func (c *Console) cmdSessions(args []string) {
 			return
 		}
 		if c.program != nil {
-			go c.program.Send(sessionInteractMsg{id: id})
+			go c.program.Send(SessionInteractMsg{ID: id})
 		}
 		return
 	}

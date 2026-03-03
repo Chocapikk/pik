@@ -6,13 +6,13 @@ import (
 
 	_ "github.com/Chocapikk/pik/modules"
 	"github.com/Chocapikk/pik/pkg/cli"
-	"github.com/Chocapikk/pik/pkg/console"
+	"github.com/Chocapikk/pik/pkg/tui"
 	_ "github.com/Chocapikk/pik/pkg/lab"
 	"github.com/Chocapikk/pik/sdk"
 )
 
 func init() {
-	cli.ConsoleFunc = console.Run
+	cli.ConsoleFunc = tui.Run
 }
 
 func main() {

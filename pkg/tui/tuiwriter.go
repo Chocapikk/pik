@@ -1,4 +1,4 @@
-package console
+package tui
 
 import (
 	"strings"
@@ -17,7 +17,7 @@ type tuiWriter struct {
 	pending string
 }
 
-func newTUIWriter(p *tea.Program) *tuiWriter {
+func NewTUIWriter(p *tea.Program) *tuiWriter {
 	return &tuiWriter{program: p}
 }
 

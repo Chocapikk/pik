@@ -1,15 +1,12 @@
 package console
 
 import (
-	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Chocapikk/pik/pkg/c2"
-	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
-	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -30,40 +27,6 @@ type Console struct {
 	previousMod   sdk.Exploit
 	previousIdx   int
 	program       *tea.Program
-}
-
-// Run starts the interactive console.
-func Run() error {
-	return RunWith(nil)
-}
-
-// RunWith starts the interactive console with an optional pre-selected module.
-func RunWith(mod sdk.Exploit) error {
-	cons := New()
-	if mod != nil {
-		cons.SetMod(mod)
-	}
-
-	model := newConsoleModel(cons)
-	p := tea.NewProgram(model,
-		tea.WithAltScreen(),
-		tea.WithOutput(os.Stderr),
-		tea.WithMouseAllMotion(),
-	)
-	cons.program = p
-
-	// Wire output to TUI
-	writer := newTUIWriter(p)
-	log.SetOutput(writer)
-	defer log.SetOutput(os.Stderr)
-
-	// Banner is printed via Init() command after program starts.
-	output.BannerModuleCount = len(sdk.List())
-	output.BannerPayloadCount = len(payload.ListPayloads())
-
-	_, err := p.Run()
-	cons.shutdownBackend()
-	return err
 }
 
 // exec runs a single console line. Returns true if the console should exit.

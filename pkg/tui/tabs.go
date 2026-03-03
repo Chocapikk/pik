@@ -1,4 +1,4 @@
-package console
+package tui
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Chocapikk/pik/pkg/log"
+	"github.com/Chocapikk/pik/pkg/types"
 	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/sdk"
 )
@@ -135,7 +136,7 @@ func newBrowser(w, h int) list.Model {
 		if cves != "" {
 			desc += " - " + cves
 		}
-		items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: desc}
+		items[i] = fuzzyItem{Name: sdk.NameOf(mod), Desc: desc}
 	}
 
 	delegate := newFuzzyDelegate()
@@ -151,13 +152,13 @@ func newBrowser(w, h int) list.Model {
 // --- Config tab ---
 
 func (m consoleModel) renderConfigTab(h int) string {
-	if m.console.mod == nil {
+	if m.console.Mod() == nil {
 		return padToHeight("\n"+log.White("  No module selected")+"\n\n"+log.White("  Select a module in Browse (F1) or type 'use <module>'"), h)
 	}
 
 	var lines []string
 	lines = append(lines, "")
-	lines = append(lines, "  "+log.Amber(sdk.NameOf(m.console.mod))+"  "+log.White(m.console.mod.Info().Title()))
+	lines = append(lines, "  "+log.Amber(sdk.NameOf(m.console.Mod()))+"  "+log.White(m.console.Mod().Info().Title()))
 	lines = append(lines, "")
 
 	// Options table
@@ -194,7 +195,7 @@ func (m consoleModel) renderConfigTab(h int) string {
 
 func (m *consoleModel) refreshOptionsTable() {
 	var rows []table.Row
-	for _, opt := range m.console.options {
+	for _, opt := range m.console.Options() {
 		if opt.Advanced && !m.opts.showAdvanced {
 			continue
 		}
@@ -220,7 +221,7 @@ func (m *consoleModel) refreshOptionsTable() {
 
 func (m consoleModel) visibleOptionCount() int {
 	count := 0
-	for _, opt := range m.console.options {
+	for _, opt := range m.console.Options() {
 		if !opt.Advanced || m.opts.showAdvanced {
 			count++
 		}
@@ -228,14 +229,14 @@ func (m consoleModel) visibleOptionCount() int {
 	return count
 }
 
-func (m consoleModel) visibleOptionAt(idx int) *Option {
+func (m consoleModel) visibleOptionAt(idx int) *types.Option {
 	cur := 0
-	for i := range m.console.options {
-		if m.console.options[i].Advanced && !m.opts.showAdvanced {
+	for i := range m.console.Options() {
+		if m.console.Options()[i].Advanced && !m.opts.showAdvanced {
 			continue
 		}
 		if cur == idx {
-			return &m.console.options[i]
+			return &m.console.Options()[i]
 		}
 		cur++
 	}
@@ -243,15 +244,15 @@ func (m consoleModel) visibleOptionAt(idx int) *Option {
 }
 
 func (m consoleModel) actionButtons() []string {
-	if m.console.mod == nil {
+	if m.console.Mod() == nil {
 		return nil
 	}
 	var btns []string
-	if _, ok := m.console.mod.(sdk.Checker); ok {
+	if _, ok := m.console.Mod().(sdk.Checker); ok {
 		btns = append(btns, "Check")
 	}
 	btns = append(btns, "Exploit")
-	if len(m.console.mod.Info().Lab.Services) > 0 {
+	if len(m.console.Mod().Info().Lab.Services) > 0 {
 		btns = append(btns, "Lab")
 	}
 	if m.opts.showAdvanced {
@@ -277,7 +278,7 @@ var (
 // --- Sessions tab ---
 
 func (m consoleModel) renderSessionsTab(h int) string {
-	handler := m.console.sessionHandler()
+	handler := m.console.SessionHandler()
 	if handler == nil {
 		return padToHeight(log.White("  No active listener"), h)
 	}
@@ -331,7 +332,7 @@ func (m consoleModel) updateBrowseTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEnter:
 		if item, ok := m.browser.SelectedItem().(fuzzyItem); ok {
-			m.console.cmdUseByName(item.name)
+			m.console.UseByName(item.Name)
 			m.refreshConfig()
 			m.activeTab = tabConfig
 			m.search.input.SetValue("")
@@ -374,7 +375,7 @@ func (m *consoleModel) filterBrowser(query string) {
 			if cvesStr != "" {
 				d += " - " + cvesStr
 			}
-			items = append(items, fuzzyItem{name: sdk.NameOf(mod), desc: d})
+			items = append(items, fuzzyItem{Name: sdk.NameOf(mod), Desc: d})
 		}
 	}
 	m.browser.SetItems(items)
@@ -390,7 +391,7 @@ func (m *consoleModel) resetBrowserFilter() {
 		if cves != "" {
 			desc += " - " + cves
 		}
-		items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: desc}
+		items[i] = fuzzyItem{Name: sdk.NameOf(mod), Desc: desc}
 	}
 	m.browser.SetItems(items)
 }
@@ -417,7 +418,7 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			c := m.console
 			m.busy = true
 			return m, func() tea.Msg {
-				c.exec(cmd)
+				c.Exec(cmd)
 				return commandDoneMsg{}
 			}
 		case tea.KeyEscape:
@@ -475,13 +476,13 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if strings.EqualFold(opt.Name, "PAYLOAD") {
 				// Build payload fuzzy select directly (no Send, avoids deadlock)
 				platform := ""
-				if m.console.mod != nil {
-					platform = m.console.mod.Info().Platform()
+				if m.console.Mod() != nil {
+					platform = m.console.Mod().Info().Platform()
 				}
 				payloads := payload.ListForPlatform(platform)
 				items := make([]fuzzyItem, len(payloads))
 				for i, pl := range payloads {
-					items[i] = fuzzyItem{name: pl.Name, desc: pl.Description}
+					items[i] = fuzzyItem{Name: pl.Name, Desc: pl.Description}
 				}
 				m.mode = modeFuzzy
 				m.fuzzy = newFuzzyModel("Select payload", items)
@@ -504,7 +505,7 @@ func (m consoleModel) updateConfigEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cursor := m.opts.table.Cursor()
 		opt := m.visibleOptionAt(cursor)
 		if opt != nil {
-			m.console.setOpt(opt.Name, m.opts.editor.Value())
+			m.console.SetOpt(opt.Name, m.opts.editor.Value())
 			m.refreshOptionsTable()
 		}
 		m.opts.editing = false
@@ -521,7 +522,7 @@ func (m consoleModel) updateConfigEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m consoleModel) updateSessionsTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	handler := m.console.sessionHandler()
+	handler := m.console.SessionHandler()
 	if handler == nil {
 		return m, nil
 	}
@@ -560,8 +561,8 @@ func (m consoleModel) updateSessionsTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.sessionBtnMode {
 			switch m.sessionBtnCursor {
 			case 0:
-				if m.console.program != nil {
-					go m.console.program.Send(sessionInteractMsg{id: sess.ID})
+				if m.console.Program() != nil {
+					go m.console.Program().Send(types.SessionInteractMsg{ID: sess.ID})
 				}
 				m.sessionBtnMode = false
 			case 1:
@@ -609,7 +610,7 @@ func (m *consoleModel) handleActionButton(idx int) tea.Cmd {
 	c := m.console
 	m.busy = true
 	return func() tea.Msg {
-		c.exec(cmd)
+		c.Exec(cmd)
 		return commandDoneMsg{}
 	}
 }

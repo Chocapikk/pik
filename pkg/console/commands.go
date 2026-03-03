@@ -283,16 +283,16 @@ func (c *Console) cmdUse(args []string) {
 		// In TUI mode, send a fuzzy select message
 		if c.program != nil {
 			modules := sdk.List()
-			items := make([]fuzzyItem, len(modules))
+			items := make([]FuzzyItem, len(modules))
 			for i, mod := range modules {
 				info := mod.Info()
 				cves := strings.Join(info.CVEs(), ", ")
-				items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: cves}
+				items[i] = FuzzyItem{Name: sdk.NameOf(mod), Desc: cves}
 			}
-			c.program.Send(fuzzySelectMsg{
-				context: "module",
-				items:   items,
-				title:   "Select module",
+			c.program.Send(FuzzySelectMsg{
+				Context: "module",
+				Items:   items,
+				Title:   "Select module",
 			})
 			return
 		}
@@ -619,16 +619,16 @@ func (c *Console) selectPayload() {
 	}
 
 	payloads := payload.ListForPlatform(platform)
-	items := make([]fuzzyItem, len(payloads))
+	items := make([]FuzzyItem, len(payloads))
 	for i, pl := range payloads {
-		items[i] = fuzzyItem{name: pl.Name, desc: pl.Description}
+		items[i] = FuzzyItem{Name: pl.Name, Desc: pl.Description}
 	}
 
 	if c.program != nil {
-		c.program.Send(fuzzySelectMsg{
-			context: "payload",
-			items:   items,
-			title:   "Select payload",
+		c.program.Send(FuzzySelectMsg{
+			Context: "payload",
+			Items:   items,
+			Title:   "Select payload",
 		})
 		return
 	}
