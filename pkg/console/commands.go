@@ -680,6 +680,13 @@ func (c *Console) labStart() {
 		return
 	}
 	output.Success("Lab %s started", labName)
+
+	// Auto-set TARGET from lab port bindings.
+	target := mgr.Target(ctx, labName)
+	if target != "" {
+		c.setOpt("TARGET", target)
+		output.Success("TARGET => %s", target)
+	}
 }
 
 func (c *Console) labStop() {
