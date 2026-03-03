@@ -20,3 +20,7 @@
 ## Breaking changes
 
 <!-- Does this change existing behavior? If yes, describe. If no, delete this section. -->
+
+## CLA
+
+- [ ] I have read and signed the [Contributor License Agreement](CLA.md)
