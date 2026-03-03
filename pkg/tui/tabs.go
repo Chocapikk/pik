@@ -61,13 +61,8 @@ func newOptionsPanel() optionsPanel {
 	editor.Prompt = ""
 	editor.CharLimit = 0
 
-	cols := []table.Column{
-		{Title: "Option", Width: 16},
-		{Title: "Value", Width: 30},
-		{Title: "Req", Width: 3},
-	}
 	t := table.New(
-		table.WithColumns(cols),
+		table.WithColumns(optionColumns(50)),
 		table.WithRows([]table.Row{}),
 		table.WithHeight(10),
 		table.WithFocused(false),
@@ -119,62 +114,21 @@ func (m consoleModel) renderActiveTab() string {
 
 // --- Browse tab ---
 
-func (m consoleModel) renderBrowseTab(h int) string {
-	searchLine := m.search.input.View()
-	m.browser.SetHeight(h - 1)
-	w := m.width
-	m.browser.SetWidth(w)
-	// Recalculate column widths on render
-	fixed := 3 + 11 + 5 + 4
-	remaining := w - fixed
-	nameW := remaining * 35 / 100
-	descW := remaining * 35 / 100
-	cveW := remaining - nameW - descW
-	m.browser.SetColumns([]table.Column{
-		{Title: "#", Width: 3},
-		{Title: "Name", Width: nameW},
-		{Title: "Reliability", Width: 11},
-		{Title: "Check", Width: 5},
-		{Title: "Description", Width: descW},
-		{Title: "CVEs", Width: cveW},
-	})
-	return padToHeight(searchLine+"\n"+m.browser.View(), h)
+func optionColumns(w int) []table.Column {
+	return []table.Column{
+		{Title: "Option", Width: 16},
+		{Title: "Value", Width: max(w-24, 12)},
+		{Title: "", Width: 3},
+	}
 }
 
-func newBrowserTable(w, h int) table.Model {
-	modules := sdk.List()
-	rows := make([]table.Row, len(modules))
-	for i, mod := range modules {
-		info := mod.Info()
-		cveList := info.CVEs()
-		cves := "-"
-		if len(cveList) == 1 {
-			cves = cveList[0]
-		} else if len(cveList) > 1 {
-			cves = fmt.Sprintf("%d CVEs", len(cveList))
-		}
-		rel := info.Reliability.String()
-		check := "no"
-		if _, ok := mod.(sdk.Checker); ok {
-			check = "yes"
-		}
-		rows[i] = table.Row{
-			fmt.Sprintf("%d", i),
-			sdk.NameOf(mod),
-			rel,
-			check,
-			info.Title(),
-			cves,
-		}
-	}
-
+func browserColumns(w int) []table.Column {
 	fixed := 3 + 11 + 5 + 4 // #, Reliability, Check, padding
 	remaining := w - fixed
 	nameW := remaining * 35 / 100
 	descW := remaining * 35 / 100
 	cveW := remaining - nameW - descW
-
-	cols := []table.Column{
+	return []table.Column{
 		{Title: "#", Width: 3},
 		{Title: "Name", Width: nameW},
 		{Title: "Reliability", Width: 11},
@@ -182,9 +136,21 @@ func newBrowserTable(w, h int) table.Model {
 		{Title: "Description", Width: descW},
 		{Title: "CVEs", Width: cveW},
 	}
+}
+
+func (m consoleModel) renderBrowseTab(h int) string {
+	searchLine := m.search.input.View()
+	m.browser.SetHeight(h - 1)
+	m.browser.SetWidth(m.width)
+	m.browser.SetColumns(browserColumns(m.width))
+	return padToHeight(searchLine+"\n"+m.browser.View(), h)
+}
+
+func newBrowserTable(w, h int) table.Model {
+	rows := buildBrowserRows()
 
 	t := table.New(
-		table.WithColumns(cols),
+		table.WithColumns(browserColumns(w)),
 		table.WithRows(rows),
 		table.WithHeight(h),
 		table.WithFocused(true),
@@ -279,12 +245,7 @@ func (m *consoleModel) refreshOptionsTable() {
 	}
 	m.opts.table.SetRows(rows)
 
-	cols := []table.Column{
-		{Title: "Option", Width: 16},
-		{Title: "Value", Width: max(m.width-24, 12)},
-		{Title: "", Width: 3},
-	}
-	m.opts.table.SetColumns(cols)
+	m.opts.table.SetColumns(optionColumns(m.width))
 }
 
 func (m consoleModel) visibleOptionCount() int {
