@@ -70,7 +70,7 @@ Lab: sdk.Lab{
         sdk.NewLabService("db", "mysql:5.7").
             WithEnv("MYSQL_ROOT_PASSWORD", sdk.Rand("db_pass")).
             WithHealthcheck("mysqladmin ping -h localhost"),
-        sdk.NewLabService("web", "wordpress:6.4", "80:80").
+        sdk.NewLabService("web", "wordpress:6.4", "80").
             WithEnv("WORDPRESS_DB_HOST", "db").
             WithEnv("WORDPRESS_DB_PASSWORD", sdk.Rand("db_pass")),
     },
