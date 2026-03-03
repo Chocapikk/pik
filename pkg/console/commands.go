@@ -179,6 +179,13 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 					log.Pad(desc, descW),
 					log.Yellow(cveStr),
 				)
+				// Compute max type width for alignment.
+				typeW := 3
+				for _, t := range info.Targets {
+					if w := len(t.Type); w > typeW {
+						typeW = w
+					}
+				}
 				for i, t := range info.Targets {
 					branch := "├─"
 					if i == len(info.Targets)-1 {
@@ -195,7 +202,7 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 					output.Print("  %s  %s %s  %s\n",
 						log.Pad(log.Cyan(fmt.Sprintf("%d", globalIdx)), 3),
 						log.Muted(branch),
-						log.Gray(t.Type),
+						log.Pad(log.Gray(t.Type), typeW),
 						log.Gray(tName+arches),
 					)
 					globalIdx++
