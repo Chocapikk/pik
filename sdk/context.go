@@ -17,7 +17,7 @@ type Context struct {
 	timing    bool
 
 	// Function hooks injected by the runner.
-	SendFn       func(Request) (*Response, error)
+	SendFn       func(HTTPRequest) (*HTTPResponse, error)
 	DialFn       func() (Conn, error)
 	StatusFn     func(string, ...any)
 	SuccessFn    func(string, ...any)
@@ -37,7 +37,7 @@ func NewContext(values map[string]string, payload string) *Context {
 
 // SendFactory creates a SendFn from module params.
 // Registered by pkg/protocol/http via SetSendFactory.
-type SendFactory func(Params) func(Request) (*Response, error)
+type SendFactory func(Params) func(HTTPRequest) (*HTTPResponse, error)
 
 var sendFactory SendFactory
 
@@ -46,7 +46,7 @@ var sendFactory SendFactory
 func SetSendFactory(f SendFactory) { sendFactory = f }
 
 // SendWith creates an HTTP send function using the registered factory.
-func SendWith(params Params) func(Request) (*Response, error) {
+func SendWith(params Params) func(HTTPRequest) (*HTTPResponse, error) {
 	if sendFactory == nil {
 		return nil
 	}
@@ -72,7 +72,7 @@ func WithPool(ctx context.Context, threads int, proxy string) context.Context {
 }
 
 // Send dispatches an HTTP request through the runner's HTTP bridge.
-func (c *Context) Send(req Request) (*Response, error) {
+func (c *Context) Send(req HTTPRequest) (*HTTPResponse, error) {
 	if c.SendFn != nil {
 		return c.SendFn(req)
 	}

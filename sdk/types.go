@@ -9,8 +9,8 @@ import (
 // Values is a map of string slices, used for query/form parameters.
 type Values = map[string][]string
 
-// Request describes an HTTP request from module code.
-type Request struct {
+// HTTPRequest describes an HTTP request from module code.
+type HTTPRequest struct {
 	Method         string
 	Path           string
 	Query          Values
@@ -24,15 +24,15 @@ type Request struct {
 }
 
 // BodyReader returns the Body as an io.Reader. Used internally by the HTTP bridge.
-func (r *Request) BodyReader() io.Reader {
+func (r *HTTPRequest) BodyReader() io.Reader {
 	if r.Body == "" {
 		return nil
 	}
 	return strings.NewReader(r.Body)
 }
 
-// Response is an HTTP response for module code.
-type Response struct {
+// HTTPResponse is an HTTP response for module code.
+type HTTPResponse struct {
 	StatusCode int
 	Body       io.ReadCloser
 	Headers    map[string]string
@@ -42,7 +42,7 @@ type Response struct {
 }
 
 // Header returns the value of a response header (case-insensitive).
-func (r *Response) Header(key string) string {
+func (r *HTTPResponse) Header(key string) string {
 	if r.Headers == nil {
 		return ""
 	}
@@ -60,12 +60,12 @@ func (r *Response) Header(key string) string {
 }
 
 // SetContainsFn sets the function used by ContainsAny.
-func (r *Response) SetContainsFn(fn func(...string) bool) {
+func (r *HTTPResponse) SetContainsFn(fn func(...string) bool) {
 	r.containsFn = fn
 }
 
 // BodyBytes reads and caches the full response body.
-func (r *Response) BodyBytes() ([]byte, error) {
+func (r *HTTPResponse) BodyBytes() ([]byte, error) {
 	if r.bodyRead {
 		return r.body, nil
 	}
@@ -84,7 +84,7 @@ func (r *Response) BodyBytes() ([]byte, error) {
 }
 
 // BodyString returns the response body as a string.
-func (r *Response) BodyString() (string, error) {
+func (r *HTTPResponse) BodyString() (string, error) {
 	data, err := r.BodyBytes()
 	if err != nil {
 		return "", err
@@ -93,7 +93,7 @@ func (r *Response) BodyString() (string, error) {
 }
 
 // JSON unmarshals the response body into the given target.
-func (r *Response) JSON(target any) error {
+func (r *HTTPResponse) JSON(target any) error {
 	data, err := r.BodyBytes()
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (r *Response) JSON(target any) error {
 }
 
 // Contains checks if the response body contains the given substring.
-func (r *Response) Contains(substr string) bool {
+func (r *HTTPResponse) Contains(substr string) bool {
 	data, err := r.BodyBytes()
 	if err != nil {
 		return false
@@ -111,7 +111,7 @@ func (r *Response) Contains(substr string) bool {
 }
 
 // ContainsAny returns true if the response body contains any of the given substrings.
-func (r *Response) ContainsAny(substrs ...string) bool {
+func (r *HTTPResponse) ContainsAny(substrs ...string) bool {
 	if r.containsFn != nil {
 		return r.containsFn(substrs...)
 	}

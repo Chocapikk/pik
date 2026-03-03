@@ -9,9 +9,9 @@ import (
 
 func init() {
 	sdk.SetPoolFactory(WithPool)
-	sdk.SetSendFactory(func(params sdk.Params) func(sdk.Request) (*sdk.Response, error) {
+	sdk.SetSendFactory(func(params sdk.Params) func(sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
 		run := FromModule(params)
-		return func(req sdk.Request) (*sdk.Response, error) {
+		return func(req sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
 			timeout := time.Duration(req.Timeout) * time.Second
 			if req.FireAndForget && timeout == 0 {
 				timeout = 3 * time.Second
@@ -33,7 +33,7 @@ func init() {
 				if resp != nil && resp.Body != nil {
 					resp.Body.Close()
 				}
-				return &sdk.Response{StatusCode: 0}, nil
+				return &sdk.HTTPResponse{StatusCode: 0}, nil
 			}
 
 			if err != nil {
@@ -47,7 +47,7 @@ func init() {
 				}
 			}
 
-			r := &sdk.Response{StatusCode: resp.StatusCode, Body: resp.Body, Headers: headers}
+			r := &sdk.HTTPResponse{StatusCode: resp.StatusCode, Body: resp.Body, Headers: headers}
 			r.SetContainsFn(resp.ContainsAny)
 			return r, nil
 		}
