@@ -280,24 +280,30 @@ func (c *Console) cmdUse(args []string) {
 		name = args[0]
 	}
 	if name == "" {
-		c.rl.Terminal.ExitRawMode()
-		defer c.rl.Terminal.EnterRawMode()
-
-		modules := sdk.List()
-		items := make([]fuzzyItem, len(modules))
-		for i, mod := range modules {
-			info := mod.Info()
-			cves := strings.Join(info.CVEs(), ", ")
-			items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: cves}
-		}
-
-		selected, ok := FuzzySelect("Select module", items)
-		if !ok {
+		// In TUI mode, send a fuzzy select message
+		if c.program != nil {
+			modules := sdk.List()
+			items := make([]fuzzyItem, len(modules))
+			for i, mod := range modules {
+				info := mod.Info()
+				cves := strings.Join(info.CVEs(), ", ")
+				items[i] = fuzzyItem{name: sdk.NameOf(mod), desc: cves}
+			}
+			c.program.Send(fuzzySelectMsg{
+				context: "module",
+				items:   items,
+				title:   "Select module",
+			})
 			return
 		}
-		name = selected
+		return
 	}
 
+	c.cmdUseByName(name)
+}
+
+// cmdUseByName selects a module by name or numeric index.
+func (c *Console) cmdUseByName(name string) {
 	// Support numeric index: resolves global target ID to module + target.
 	if idx, err := strconv.Atoi(name); err == nil {
 		if mod, targetIdx := resolveGlobalIdx(idx); mod != nil {
@@ -309,7 +315,6 @@ func (c *Console) cmdUse(args []string) {
 			c.targetIdx = targetIdx
 			c.initOptions()
 			c.importTargetDefaults()
-			c.updatePrompt()
 			output.Success("Using %s - %s [target %d]", sdk.NameOf(mod), mod.Info().Title(), targetIdx)
 			return
 		}
@@ -332,7 +337,6 @@ func (c *Console) cmdUse(args []string) {
 	c.mod = mod
 	c.targetIdx = 0
 	c.initOptions()
-	c.updatePrompt()
 	output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Title())
 }
 
@@ -343,7 +347,7 @@ func (c *Console) cmdBack() {
 	}
 	c.mod = nil
 	c.options = nil
-	c.updatePrompt()
+
 }
 
 func (c *Console) cmdPrevious() {
@@ -362,7 +366,7 @@ func (c *Console) cmdPrevious() {
 	c.mod = prev
 	c.targetIdx = prevIdx
 	c.initOptions()
-	c.updatePrompt()
+
 	output.Success("Using %s - %s", sdk.NameOf(prev), prev.Info().Description)
 }
 
@@ -620,15 +624,14 @@ func (c *Console) selectPayload() {
 		items[i] = fuzzyItem{name: pl.Name, desc: pl.Description}
 	}
 
-	c.rl.Terminal.ExitRawMode()
-	defer c.rl.Terminal.EnterRawMode()
-
-	selected, ok := FuzzySelect("Select payload", items)
-	if !ok {
+	if c.program != nil {
+		c.program.Send(fuzzySelectMsg{
+			context: "payload",
+			items:   items,
+			title:   "Select payload",
+		})
 		return
 	}
-	c.setOpt("PAYLOAD", selected)
-	output.Success("PAYLOAD => %s", selected)
 }
 
 // --- Lab ---

@@ -83,13 +83,11 @@ func (l *Listener) GeneratePayload(targetOS, payloadType string) (string, error)
 // --- Session ---
 
 // WaitForSession blocks until a session connects or the timeout expires.
-// For backward compatibility, it accepts the first session and enters interactive mode.
 func (l *Listener) WaitForSession(timeout time.Duration) error {
-	sess, err := l.manager.Accept(timeout)
+	_, err := l.manager.Accept(timeout)
 	if err != nil {
 		return fmt.Errorf("no session received: %w", err)
 	}
-	sess.Interact()
 	return nil
 }
 

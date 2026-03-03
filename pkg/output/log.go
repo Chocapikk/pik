@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/Chocapikk/pik/pkg/log"
@@ -40,11 +39,11 @@ func Debug(format string, args ...any) {
 }
 
 func Print(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format, args...)
+	fmt.Fprintf(log.Output(), format, args...)
 }
 
 func Println(args ...any) {
-	fmt.Fprintln(os.Stderr, args...)
+	fmt.Fprintln(log.Output(), args...)
 }
 
 // BannerVersion is set by the CLI package at init time.
@@ -89,7 +88,7 @@ func Banner() {
 		len(bannerLines) - 1: true, // github link
 	}
 
-	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(log.Output())
 	for i, line := range bannerLines {
 		right := meta[i]
 		if right != "" {
@@ -99,14 +98,14 @@ func Banner() {
 			} else {
 				gap = strings.Repeat(" ", maxWidth-len(line)+2)
 			}
-			fmt.Fprintf(os.Stderr, "%s%s%s\n", log.Amber(line), gap, log.Muted(right))
+			fmt.Fprintf(log.Output(), "%s%s%s\n", log.Amber(line), gap, log.Muted(right))
 		} else {
-			fmt.Fprintln(os.Stderr, log.Amber(line))
+			fmt.Fprintln(log.Output(), log.Amber(line))
 		}
 	}
-	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(log.Output())
 	if BannerModuleCount > 0 {
-		fmt.Fprintf(os.Stderr, "  %s %s %s %s\n\n",
+		fmt.Fprintf(log.Output(), "  %s %s %s %s\n\n",
 			log.Amber(fmt.Sprintf("%d", BannerModuleCount)), log.White("exploits,"),
 			log.Amber(fmt.Sprintf("%d", BannerPayloadCount)), log.White("payloads"))
 	}

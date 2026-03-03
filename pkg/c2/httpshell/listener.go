@@ -139,11 +139,10 @@ func (l *Listener) GeneratePayload(_, payloadType string) (string, error) {
 }
 
 func (l *Listener) WaitForSession(timeout time.Duration) error {
-	hs, err := l.accept(timeout)
+	_, err := l.accept(timeout)
 	if err != nil {
 		return fmt.Errorf("no session received: %w", err)
 	}
-	hs.interact()
 	return nil
 }
 

@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +29,7 @@ func Spinner(label string) func(string) {
 				mu.Lock()
 				l := currentLabel
 				mu.Unlock()
-				fmt.Fprintf(os.Stderr, "\r%s %s", log.Cyan(spinFrames[frame%len(spinFrames)]), l)
+				fmt.Fprintf(log.Output(), "\r%s %s", log.Cyan(spinFrames[frame%len(spinFrames)]), l)
 				frame++
 			}
 		}
@@ -40,7 +39,7 @@ func Spinner(label string) func(string) {
 		close(done)
 		mu.Lock()
 		defer mu.Unlock()
-		fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", 80))
+		fmt.Fprintf(log.Output(), "\r%s\r", strings.Repeat(" ", 80))
 		if result != "" {
 			Success("%s", result)
 		}
@@ -63,9 +62,9 @@ func HumanSize(bytes int) string {
 
 func InfoBox(title string, pairs ...string) {
 	border := log.Gray(strings.Repeat("─", 45))
-	fmt.Fprintf(os.Stderr, "\n %s %s %s\n", log.Gray("┌"), log.Cyan(title), log.Gray(strings.Repeat("─", max(0, 43-log.VisualLen(title)))))
+	fmt.Fprintf(log.Output(), "\n %s %s %s\n", log.Gray("┌"), log.Cyan(title), log.Gray(strings.Repeat("─", max(0, 43-log.VisualLen(title)))))
 	for i := 0; i+1 < len(pairs); i += 2 {
-		fmt.Fprintf(os.Stderr, " %s  %s %s\n", log.Gray("│"), log.Pad(log.Blue(pairs[i]), 14), log.Cyan(pairs[i+1]))
+		fmt.Fprintf(log.Output(), " %s  %s %s\n", log.Gray("│"), log.Pad(log.Blue(pairs[i]), 14), log.Cyan(pairs[i+1]))
 	}
-	fmt.Fprintf(os.Stderr, " %s\n\n", border)
+	fmt.Fprintf(log.Output(), " %s\n\n", border)
 }

@@ -20,8 +20,8 @@ func (c *Console) cmdSessions(args []string) {
 		if !ok {
 			return
 		}
-		if err := handler.Interact(id); err != nil {
-			output.Error("%v", err)
+		if c.program != nil {
+			go c.program.Send(sessionInteractMsg{id: id})
 		}
 		return
 	}

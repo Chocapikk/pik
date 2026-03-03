@@ -41,7 +41,19 @@ func (d *delivery) exploit(run *sdk.Context) error {
 		return fmt.Errorf("exploit failed: %w", err)
 	}
 	output.Status("Waiting for session...")
-	return d.backend.WaitForSession(d.timeout)
+	if err := d.backend.WaitForSession(d.timeout); err != nil {
+		return err
+	}
+	// Auto-interact in standalone mode.
+	if handler, ok := d.backend.(c2.SessionHandler); ok {
+		sessions := handler.Sessions()
+		if len(sessions) > 0 {
+			last := sessions[len(sessions)-1]
+			output.Success("Session %d opened (%s)", last.ID, last.RemoteAddr)
+			last.Interact()
+		}
+	}
+	return nil
 }
 
 // --- Public API ---

@@ -426,7 +426,7 @@ func envSlice(m map[string]string, randoms map[string]string) []string {
 }
 
 func labFilter(name string) filters.Args {
-	return labFilter(name)
+	return filters.NewArgs(filters.Arg("label", labelLab+"="+name))
 }
 
 func teardown(ctx context.Context, cli *client.Client, name string) {

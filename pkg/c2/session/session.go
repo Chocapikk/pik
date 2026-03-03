@@ -1,6 +1,7 @@
 package session
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -58,26 +59,49 @@ func (s *Session) Close() {
 
 // Interact takes over stdin/stdout for interactive shell access.
 // Ctrl+Z (SIGTSTP) backgrounds the session and returns.
+// InteractTUI is like Interact but clears the screen first (used when resuming from TUI).
+func (s *Session) InteractTUI() {
+	fmt.Fprint(os.Stderr, "\033[2J\033[H")
+	output.Status("Session %d (%s) - Ctrl+Z to return to TUI", s.ID, s.RemoteAddr)
+	fmt.Fprintln(os.Stderr)
+	s.interact()
+}
+
+// Interact takes over stdin/stdout for interactive shell access.
+// Ctrl+Z (SIGTSTP) backgrounds the session and returns.
 func (s *Session) Interact() {
 	output.Status("Interacting with session %d (%s)", s.ID, s.RemoteAddr)
 	output.Status("Press Ctrl+Z to background session")
+	s.interact()
+}
 
+func (s *Session) interact() {
 	done := make(chan struct{})
 	bg := make(chan os.Signal, 1)
 	notifySuspend(bg)
 	defer stopSuspend(bg)
 
+	// Use a pipe so we can stop the stdin copy goroutine
+	pr, pw := io.Pipe()
+
 	go func() {
 		io.Copy(os.Stdout, s.Conn)
 		close(done)
 	}()
-	go io.Copy(s.Conn, os.Stdin)
+	go func() {
+		io.Copy(s.Conn, pr)
+	}()
+	go func() {
+		io.Copy(pw, os.Stdin)
+	}()
 
 	select {
 	case <-done:
+		pw.Close()
 		s.Close()
 		output.Warning("Session %d closed", s.ID)
 	case <-bg:
+		pw.Close()
 		output.Println()
 		output.Status("Session %d backgrounded", s.ID)
 	}

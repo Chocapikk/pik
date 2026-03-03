@@ -70,6 +70,26 @@ type fuzzyModel struct {
 	list     list.Model
 	selected string
 	aborted  bool
+	context  string // "module" or "payload" - used when embedded in console TUI
+}
+
+// newFuzzyModel creates a fuzzyModel for embedding in the console TUI.
+func newFuzzyModel(title string, items []fuzzyItem) fuzzyModel {
+	listItems := make([]list.Item, len(items))
+	for i, item := range items {
+		listItems[i] = item
+	}
+	delegate := newFuzzyDelegate()
+	listModel := list.New(listItems, delegate, 70, 15)
+	listModel.Title = title
+	listModel.Styles.Title = titleStyle
+	listModel.SetFilteringEnabled(true)
+	listModel.SetShowStatusBar(true)
+	listModel.SetShowHelp(true)
+	listModel.FilterInput.Prompt = "  filter: "
+	listModel.FilterInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	listModel.KeyMap.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back"))
+	return fuzzyModel{list: listModel}
 }
 
 func (m fuzzyModel) Init() tea.Cmd { return nil }

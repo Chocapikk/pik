@@ -3,10 +3,19 @@ package log
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
 )
+
+var outputWriter io.Writer = os.Stderr
+
+// Output returns the current output writer.
+func Output() io.Writer { return outputWriter }
+
+// SetOutput changes the output writer (defaults to os.Stderr).
+func SetOutput(w io.Writer) { outputWriter = w }
 
 // ANSI escape codes - LeakIX-inspired amber palette.
 const (
@@ -65,25 +74,25 @@ func Pad(s string, width int) string {
 // Log functions.
 
 func Status(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Amber(">>"), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", Amber(">>"), fmt.Sprintf(format, args...))
 }
 
 func Success(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Green("++"), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", Green("++"), fmt.Sprintf(format, args...))
 }
 
 func Error(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Red("!!"), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", Red("!!"), fmt.Sprintf(format, args...))
 }
 
 func Warning(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Yellow("**"), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", Yellow("**"), fmt.Sprintf(format, args...))
 }
 
 func Verbose(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", DimText(".."), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", DimText(".."), fmt.Sprintf(format, args...))
 }
 
 func Debug(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Style(BoldMagenta, "##"), fmt.Sprintf(format, args...))
+	fmt.Fprintf(Output(), "%s %s\n", Style(BoldMagenta, "##"), fmt.Sprintf(format, args...))
 }
