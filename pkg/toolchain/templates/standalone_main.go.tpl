@@ -4,6 +4,7 @@ import (
 	"github.com/Chocapikk/pik/sdk"
 	_ "github.com/Chocapikk/pik/pkg/cli"
 	_ "github.com/Chocapikk/pik/pkg/lab"
+	_ "github.com/Chocapikk/pik/pkg/protocol/{{.Proto}}"
 	_ "{{.ImportPath}}"
 )
 

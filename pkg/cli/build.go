@@ -32,6 +32,68 @@ func buildCmd() *cobra.Command {
 	return cmd
 }
 
+func generateCmd() *cobra.Command {
+	var outputDir string
+
+	cmd := &cobra.Command{
+		Use:   "generate [module]",
+		Short: "Generate standalone source code without compiling",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return generateSource(args[0], outputDir)
+		},
+	}
+
+	cmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory (default: module name)")
+	return cmd
+}
+
+func generateSource(name, outputDir string) error {
+	mod := resolveModule(name)
+	fullName := sdk.NameOf(mod)
+
+	if outputDir == "" {
+		outputDir = filepath.Base(fullName)
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	opts := scaffoldOpts(fullName)
+	if err := toolchain.RenderToFile(filepath.Join(outputDir, "main.go"), "standalone_main.go.tpl", map[string]string{
+		"ImportPath": opts.ImportPath,
+		"Proto":      opts.Proto,
+	}); err != nil {
+		return err
+	}
+	if err := toolchain.RenderToFile(filepath.Join(outputDir, "go.mod"), "standalone_gomod.tpl", map[string]string{
+		"ModRoot": opts.ModRoot,
+		"Version": opts.Version,
+	}); err != nil {
+		return err
+	}
+
+	abs, _ := filepath.Abs(outputDir)
+	output.Success("Generated standalone source in %s", abs)
+	return nil
+}
+
+func scaffoldOpts(fullName string) toolchain.ScaffoldOpts {
+	importPath := pikModule + "/modules/" + filepath.Dir(fullName)
+	opts := toolchain.ScaffoldOpts{
+		ImportPath: importPath,
+		Proto:      protoFromPath(fullName),
+		Version:    Version,
+	}
+	if modRoot, err := findModRoot(); err == nil {
+		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {
+			opts.ModRoot = modRoot
+			opts.Version = "v0.0.0"
+		}
+	}
+	return opts
+}
+
 func buildExploit(name, outputPath, targetOS, targetArch string) error {
 	mod := resolveModule(name)
 	fullName := sdk.NameOf(mod)
@@ -41,23 +103,9 @@ func buildExploit(name, outputPath, targetOS, targetArch string) error {
 	}
 	absOutput, _ := filepath.Abs(outputPath)
 
-	importPath := pikModule + "/modules/" + filepath.Dir(fullName)
-
-	// Use local sources if inside the pik repo, otherwise fetch from proxy.
-	scaffoldOpts := toolchain.ScaffoldOpts{
-		ImportPath: importPath,
-		Version:    Version,
-	}
-	if modRoot, err := findModRoot(); err == nil {
-		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {
-			scaffoldOpts.ModRoot = modRoot
-			scaffoldOpts.Version = "v0.0.0" // replace overrides this
-		}
-	}
-
 	output.Status("Building standalone binary for %s", fullName)
 
-	srcDir, cleanup, err := toolchain.Scaffold(scaffoldOpts)
+	srcDir, cleanup, err := toolchain.Scaffold(scaffoldOpts(fullName))
 	if err != nil {
 		return err
 	}

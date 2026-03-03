@@ -193,6 +193,7 @@ func extractTarGz(r io.Reader, dest string) error {
 // ScaffoldOpts configures standalone scaffold generation.
 type ScaffoldOpts struct {
 	ImportPath string // Go import path of the module package
+	Proto      string // Protocol to import: "http" or "tcp"
 	ModRoot    string // Local repo root (empty = fetch from proxy)
 	Version    string // Module version tag (used when ModRoot is empty)
 }
@@ -208,6 +209,7 @@ func Scaffold(opts ScaffoldOpts) (string, func(), error) {
 
 	if err := RenderToFile(filepath.Join(tmpDir, "main.go"), "standalone_main.go.tpl", map[string]string{
 		"ImportPath": opts.ImportPath,
+		"Proto":      opts.Proto,
 	}); err != nil {
 		cleanup()
 		return "", nil, err

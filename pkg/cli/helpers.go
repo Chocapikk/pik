@@ -51,6 +51,19 @@ func defaultParams(mod sdk.Exploit) sdk.Params {
 }
 
 
+// protoFromPath extracts the protocol name from a module path.
+// e.g. "exploit/tcp/multi/erlang_ssh_rce" -> "tcp"
+//      "exploit/http/linux/opendcim"      -> "http"
+func protoFromPath(modulePath string) string {
+	for _, seg := range strings.Split(modulePath, "/") {
+		switch seg {
+		case "http", "tcp":
+			return seg
+		}
+	}
+	return "http"
+}
+
 // readGoModModule reads the module path from a go.mod file.
 func readGoModModule(root string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(root, "go.mod"))

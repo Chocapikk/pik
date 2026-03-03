@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Chocapikk/pik/sdk"
 	"github.com/Chocapikk/pik/pkg/output"
+	"github.com/Chocapikk/pik/sdk"
 )
 
 // Version is set at build time via ldflags.
@@ -52,6 +52,7 @@ func Run() {
 		listCmd(),
 		rankCmd(),
 		buildCmd(),
+		generateCmd(),
 		newCmd(),
 		consoleCmd(),
 		tuiCmd(),
