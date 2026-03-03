@@ -6,7 +6,6 @@ import (
 
 	"github.com/chzyer/readline"
 
-	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
 	"github.com/Chocapikk/pik/sdk"
@@ -38,7 +37,7 @@ func RunWith(mod sdk.Exploit) error {
 
 	if mod != nil {
 		cons.SetMod(mod)
-		rl.SetPrompt(cons.buildReadlinePrompt())
+		rl.SetPrompt(cons.BuildPrompt())
 		output.Success("Using %s - %s", sdk.NameOf(mod), mod.Info().Title())
 	}
 
@@ -51,17 +50,8 @@ func RunWith(mod sdk.Exploit) error {
 		if cons.exec(line) {
 			return nil
 		}
-		rl.SetPrompt(cons.buildReadlinePrompt())
+		rl.SetPrompt(cons.BuildPrompt())
 	}
-}
-
-func (c *Console) buildReadlinePrompt() string {
-	promptBase := log.Amber("pik")
-	promptArrow := log.Muted(" > ")
-	if c.mod != nil {
-		return promptBase + " " + log.White(sdk.NameOf(c.mod)) + promptArrow
-	}
-	return promptBase + promptArrow
 }
 
 func (c *Console) initReadline() (*readline.Instance, error) {
@@ -128,7 +118,7 @@ func (c *Console) initReadline() (*readline.Instance, error) {
 	}
 
 	return readline.NewEx(&readline.Config{
-		Prompt:            c.buildReadlinePrompt(),
+		Prompt:            c.BuildPrompt(),
 		AutoComplete:      completer,
 		InterruptPrompt:   "^C",
 		EOFPrompt:         "exit",
