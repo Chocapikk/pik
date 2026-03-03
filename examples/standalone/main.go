@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/Chocapikk/pik/sdk"
 	_ "github.com/Chocapikk/pik/pkg/cli"
+	_ "github.com/Chocapikk/pik/pkg/protocol/http"
 )
 
 // MyExploit is a minimal standalone exploit example.
