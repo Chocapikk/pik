@@ -19,7 +19,7 @@ func BuildContext(params sdk.Params, payloadCmd string) *sdk.Context {
 	ctx.Base64BashFn = payload.Base64Bash
 	ctx.CommentFn = payload.CommentTrail
 	ctx.RandTextFn = text.RandText
-	ctx.SendFn = sdk.SendWith(params)
+	sdk.WireSenders(ctx, params)
 	ctx.DialFn = func() (sdk.Conn, error) { return sdk.DialWith(params) }
 	return ctx
 }

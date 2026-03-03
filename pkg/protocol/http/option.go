@@ -9,7 +9,7 @@ import (
 
 func init() {
 	sdk.SetPoolFactory(WithPool)
-	sdk.SetSendFactory(func(params sdk.Params) func(sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
+	sdk.RegisterSenderFactory("http", func(params sdk.Params) any {
 		run := FromModule(params)
 		return func(req sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
 			timeout := time.Duration(req.Timeout) * time.Second
