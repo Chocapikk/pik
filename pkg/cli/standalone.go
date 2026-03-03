@@ -9,7 +9,7 @@ import (
 
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/runner"
-	"github.com/Chocapikk/pik/pkg/tui"
+	"github.com/Chocapikk/pik/pkg/console"
 	"github.com/Chocapikk/pik/sdk"
 )
 
@@ -86,7 +86,7 @@ func RunStandaloneWith(mod sdk.Exploit, runOpts sdk.RunOptions) {
 			Short:            "Interactive console with module pre-loaded",
 			PersistentPreRun: func(_ *cobra.Command, _ []string) {},
 			RunE: func(_ *cobra.Command, _ []string) error {
-				return tui.RunWith(mod)
+				return console.RunWith(mod)
 			},
 		})
 	}

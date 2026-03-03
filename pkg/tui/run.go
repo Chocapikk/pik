@@ -12,6 +12,11 @@ import (
 	"github.com/Chocapikk/pik/sdk"
 )
 
+// programSender wraps *tea.Program to satisfy console.MsgSender.
+type programSender struct{ p *tea.Program }
+
+func (s programSender) Send(msg any) { s.p.Send(msg) }
+
 // Run starts the TUI with no pre-selected module.
 func Run() error {
 	return RunWith(nil)
@@ -30,7 +35,7 @@ func RunWith(mod sdk.Exploit) error {
 		tea.WithOutput(os.Stderr),
 		tea.WithMouseAllMotion(),
 	)
-	cons.SetProgram(p)
+	cons.SetProgram(programSender{p})
 
 	writer := NewTUIWriter(p)
 	log.SetOutput(writer)

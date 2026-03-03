@@ -3,12 +3,16 @@ package console
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/sdk"
 )
+
+// MsgSender is an interface for sending messages to the TUI program.
+// Avoids importing bubbletea in console package.
+type MsgSender interface {
+	Send(msg any)
+}
 
 type command struct {
 	fn   func([]string)
@@ -26,7 +30,7 @@ type Console struct {
 	globals       map[string]string
 	previousMod   sdk.Exploit
 	previousIdx   int
-	program       *tea.Program
+	program       MsgSender
 }
 
 // exec runs a single console line. Returns true if the console should exit.

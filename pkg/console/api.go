@@ -1,8 +1,6 @@
 package console
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/types"
@@ -16,11 +14,11 @@ func New() *Console {
 	return c
 }
 
-// SetProgram sets the bubbletea program reference for message sending.
-func (c *Console) SetProgram(p *tea.Program) { c.program = p }
+// SetProgram sets the message sender (TUI program) for async communication.
+func (c *Console) SetProgram(p MsgSender) { c.program = p }
 
-// Program returns the bubbletea program reference.
-func (c *Console) Program() *tea.Program { return c.program }
+// Program returns the message sender.
+func (c *Console) Program() MsgSender { return c.program }
 
 // SelectPayload triggers payload selection via fuzzy picker.
 func (c *Console) SelectPayload() { c.selectPayload() }
