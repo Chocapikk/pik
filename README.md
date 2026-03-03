@@ -68,14 +68,16 @@ Declaring a lab in a module:
 Lab: sdk.Lab{
     Services: []sdk.Service{
         sdk.NewLabService("db", "mysql:5.7").
-            WithEnv("MYSQL_ROOT_PASSWORD", "root").
+            WithEnv("MYSQL_ROOT_PASSWORD", sdk.Rand("db_pass")).
             WithHealthcheck("mysqladmin ping -h localhost"),
-        sdk.NewLabService("web", "wordpress:6.4", "8080:80").
+        sdk.NewLabService("web", "wordpress:6.4", "80:80").
             WithEnv("WORDPRESS_DB_HOST", "db").
-            WithEnv("WORDPRESS_DB_PASSWORD", "root"),
+            WithEnv("WORDPRESS_DB_PASSWORD", sdk.Rand("db_pass")),
     },
 },
 ```
+
+`sdk.Rand("label")` generates a random value at lab start. Same label across services resolves to the same value (shared credentials). Host ports are always randomized by the framework to avoid conflicts.
 
 ## C2 backends
 
