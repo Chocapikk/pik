@@ -9,6 +9,11 @@ import (
 // Values is a map of string slices, used for query/form parameters.
 type Values = map[string][]string
 
+// Sendable is implemented by all request types that can be passed to run.Send().
+type Sendable interface {
+	protocol() string
+}
+
 // HTTPRequest describes an HTTP request from module code.
 type HTTPRequest struct {
 	Method         string
@@ -22,6 +27,8 @@ type HTTPRequest struct {
 	NoRedirect     bool
 	FireAndForget  bool // send request, ignore response and errors
 }
+
+func (HTTPRequest) protocol() string { return "http" }
 
 // BodyReader returns the Body as an io.Reader. Used internally by the HTTP bridge.
 func (r *HTTPRequest) BodyReader() io.Reader {
