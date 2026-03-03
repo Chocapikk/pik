@@ -22,6 +22,8 @@ func (c *Console) cmdSessions(args []string) {
 		}
 		if c.program != nil {
 			go c.program.Send(SessionInteractMsg{ID: id})
+		} else {
+			handler.Interact(id)
 		}
 		return
 	}

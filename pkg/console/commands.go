@@ -296,6 +296,9 @@ func (c *Console) cmdUse(args []string) {
 			})
 			return
 		}
+		// Console mode: show module list
+		c.cmdList()
+		output.Status("Type 'use <module_name>' to select")
 		return
 	}
 

@@ -12,8 +12,11 @@ import (
 // Version is set at build time via ldflags.
 var Version = "dev"
 
-// ConsoleFunc is set by cmd/pik to provide the console.
+// ConsoleFunc is set by cmd/pik to provide the readline console.
 var ConsoleFunc func() error
+
+// TUIFunc is set by cmd/pik to provide the TUI dashboard.
+var TUIFunc func() error
 
 // Run starts the full framework CLI.
 func Run() {
@@ -51,6 +54,7 @@ func Run() {
 		buildCmd(),
 		newCmd(),
 		consoleCmd(),
+		tuiCmd(),
 		updateCmd(),
 		labCmd(),
 	)
@@ -80,10 +84,27 @@ func runConsole() {
 	os.Exit(1)
 }
 
+func runTUI() {
+	if TUIFunc != nil {
+		_ = TUIFunc()
+		return
+	}
+	output.Error("TUI not available in this build")
+	os.Exit(1)
+}
+
 func consoleCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "console",
-		Short: "Start the interactive console",
+		Short: "Start the interactive readline console",
 		Run:   func(*cobra.Command, []string) { runConsole() },
+	}
+}
+
+func tuiCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tui",
+		Short: "Start the TUI dashboard",
+		Run:   func(*cobra.Command, []string) { runTUI() },
 	}
 }
