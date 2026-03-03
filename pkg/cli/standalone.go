@@ -92,7 +92,7 @@ func RunStandaloneWith(mod sdk.Exploit, runOpts sdk.RunOptions) {
 	}
 
 	if runOpts.Lab && sdk.GetLabManager() != nil {
-		cmd.AddCommand(labCmd())
+		cmd.AddCommand(standaloneLabCmd(mod))
 	}
 
 	if err := cmd.Execute(); err != nil {
