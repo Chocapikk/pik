@@ -25,13 +25,15 @@ func infoCmd() *cobra.Command {
 				output.Print("\n%s\n\n", info.Detail)
 			}
 			output.Print("Authors:      %s\n", info.AuthorNames())
-			if info.DisclosureDate != "" {
-				output.Print("Disclosed:    %s\n", info.DisclosureDate)
+			if info.Disclosure != "" {
+				output.Print("Disclosed:    %s\n", info.Disclosure)
 			}
 			output.Print("Reliability:  %s\n", info.Reliability)
-			if info.Stance != "" {
-				output.Print("Stance:       %s\n", info.Stance)
+			stance := info.Stance
+			if stance == "" {
+				stance = "aggressive"
 			}
+			output.Print("Stance:       %s\n", stance)
 			if info.Privileged {
 				output.Print("Privileged:   yes\n")
 			}
@@ -42,9 +44,9 @@ func infoCmd() *cobra.Command {
 				output.Print("Side effects: %s\n", strings.Join(info.Notes.SideEffects, ", "))
 			}
 			output.Print("CVEs:         %s\n", strings.Join(info.CVEs(), ", "))
-			if len(info.References) > 0 {
-				urls := make([]string, len(info.References))
-				for i, ref := range info.References {
+			if len(info.Refs) > 0 {
+				urls := make([]string, len(info.Refs))
+				for i, ref := range info.Refs {
 					urls[i] = ref.URL()
 				}
 				output.Print("References:   %s\n", strings.Join(urls, "\n              "))

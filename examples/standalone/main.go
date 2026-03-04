@@ -11,24 +11,22 @@ type MyExploit struct{ sdk.Pik }
 
 func (m *MyExploit) Info() sdk.Info {
 	return sdk.Info{
-		Description:    "Example standalone exploit",
-		Authors: []sdk.Author{
-			{Name: "Valentin Lobstein", Handle: "Chocapikk"},
-		},
-		DisclosureDate: "2026-01-01",
-		Reliability:    sdk.Typical,
-		Stance:         sdk.Aggressive,
-		Notes: sdk.Notes{
-			Stability:   []string{sdk.CrashSafe},
-			SideEffects: []string{sdk.IOCInLogs},
-		},
-		References: []sdk.Reference{
+		Description: "Example standalone exploit",
+		Authors: sdk.Authors(
+			sdk.NewAuthor("Valentin Lobstein").WithHandle("Chocapikk"),
+		),
+		Disclosure:  "2026-01-01",
+		Reliability: sdk.Typical,
+		Notes:       sdk.SafeNotes().Logs(),
+
+		Refs: sdk.Refs(
 			// sdk.CVE("2026-XXXXX"),
 			// sdk.VulnCheck("advisory-slug"),
-		},
-		Queries: []sdk.Query{
+		),
+		Queries: sdk.Dorks(
 			// sdk.Shodan(`http.title:"myapp"`),
-		},
+		),
+
 		Targets: []sdk.Target{sdk.TargetLinux("amd64")},
 	}
 }

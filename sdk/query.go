@@ -39,6 +39,9 @@ func (q Query) URL() string {
 	}
 }
 
+// Dorks returns its arguments as a slice, removing []Query{} noise from module code.
+func Dorks(queries ...Query) []Query { return queries }
+
 func Shodan(dork string) Query        { return Query{Engine: "Shodan", Dork: dork} }
 func ZoomEye(dork string) Query       { return Query{Engine: "ZoomEye", Dork: dork} }
 func FOFA(dork string) Query          { return Query{Engine: "FOFA", Dork: dork} }

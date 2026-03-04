@@ -397,9 +397,9 @@ func (c *Console) cmdInfo(args []string) {
 	output.Print("  %s  %s\n", log.Amber("Reliability:"), reliabilityStyle(info.Reliability))
 	output.Print("  %s  %s\n", log.Amber("Check:"), checkSupportStr(mod))
 	output.Print("  %s  %s\n", log.Amber("CVEs:"), strings.Join(info.CVEs(), ", "))
-	if len(info.References) > 0 {
+	if len(info.Refs) > 0 {
 		output.Print("  %s\n", log.Amber("References:"))
-		for _, ref := range info.References {
+		for _, ref := range info.Refs {
 			output.Print("    - %s\n", log.Blue(ref.URL()))
 		}
 	}

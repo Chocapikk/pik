@@ -1,6 +1,8 @@
 package sdk
 
-import "strings"
+import (
+	"strings"
+)
 
 // --- Reliability ---
 
@@ -144,11 +146,11 @@ const (
 // --- Target ---
 
 type Target struct {
-	Name           string
-	Platform       string
-	Type           string            // module-defined, e.g. "cmd", "dropper"
-	Arches         []string
-	DefaultOptions map[string]string // per-target option overrides
+	Name     string
+	Platform string
+	Type     string            // module-defined, e.g. "cmd", "dropper"
+	Arches   []string
+	Defaults map[string]string // per-target option overrides
 }
 
 func (t Target) String() string {
@@ -282,21 +284,21 @@ func (a Author) String() string {
 // --- Info ---
 
 type Info struct {
-	Name           string // Software name (e.g. "OpenDCIM", "Langflow", "Next.js")
-	Versions       string // Affected versions (e.g. "< 24.2", "1.0.0 - 1.2.9")
-	Description    string // Vulnerability title (e.g. "SQLi to RCE via Config Poisoning")
-	Detail         string
-	Authors        []Author
-	DisclosureDate string // "2026-01-15"
-	Reliability    Reliability
-	Stance         Stance
-	Privileged     bool // does exploitation yield privileged access?
-	Notes          Notes
-	References     []Reference
-	Queries        []Query
-	Targets        []Target
-	DefaultOptions map[string]string
-	Lab            Lab
+	Name        string // Software name (e.g. "OpenDCIM", "Langflow", "Next.js")
+	Versions    string // Affected versions (e.g. "< 24.2", "1.0.0 - 1.2.9")
+	Description string // Vulnerability title (e.g. "SQLi to RCE via Config Poisoning")
+	Detail      string
+	Authors     []Author
+	Disclosure  string // "2026-01-15"
+	Reliability Reliability
+	Stance      Stance
+	Privileged  bool // does exploitation yield privileged access?
+	Notes       Notes
+	Refs        []Reference
+	Queries     []Query
+	Targets     []Target
+	Defaults    map[string]string
+	Lab         Lab
 }
 
 // Title returns the formatted module title: "Name Versions - Description".
@@ -328,7 +330,7 @@ func (info Info) AuthorNames() string {
 
 func (info Info) CVEs() []string {
 	var cves []string
-	for _, ref := range info.References {
+	for _, ref := range info.Refs {
 		if ref.Type == RefCVE {
 			cves = append(cves, ref.ID)
 		}
@@ -351,4 +353,72 @@ func (info Info) TargetStrings() []string {
 		result[i] = t.String()
 	}
 	return result
+}
+
+// --- Helper constructors ---
+
+// Authors returns its arguments as a slice, removing []Author{} noise from module code.
+func Authors(authors ...Author) []Author { return authors }
+
+// NewAuthor creates an Author with the given name. Chain .Handle(), .Email(), .Company() for more.
+func NewAuthor(name string) Author { return Author{Name: name} }
+
+func (a Author) WithHandle(h string) Author  { a.Handle = h; return a }
+func (a Author) WithEmail(e string) Author   { a.Email = e; return a }
+func (a Author) WithCompany(c string) Author { a.Company = c; return a }
+
+// SafeNotes returns Notes with CrashSafe stability. Chain methods to add more.
+func SafeNotes() Notes {
+	return Notes{Stability: []string{CrashSafe}}
+}
+
+// Logs adds IOCInLogs to SideEffects.
+func (n Notes) Logs() Notes {
+	se := make([]string, len(n.SideEffects), len(n.SideEffects)+1)
+	copy(se, n.SideEffects)
+	n.SideEffects = append(se, IOCInLogs)
+	return n
+}
+
+// ConfigChanges adds ConfigChanges to SideEffects.
+func (n Notes) ConfigChanges() Notes {
+	se := make([]string, len(n.SideEffects), len(n.SideEffects)+1)
+	copy(se, n.SideEffects)
+	n.SideEffects = append(se, ConfigChanges)
+	return n
+}
+
+// Artifacts adds ArtifactsOnDisk to SideEffects.
+func (n Notes) Artifacts() Notes {
+	se := make([]string, len(n.SideEffects), len(n.SideEffects)+1)
+	copy(se, n.SideEffects)
+	n.SideEffects = append(se, ArtifactsOnDisk)
+	return n
+}
+
+// Repeatable sets Reliability to RepeatableSession.
+func (n Notes) Repeatable() Notes {
+	r := make([]string, len(n.Reliability), len(n.Reliability)+1)
+	copy(r, n.Reliability)
+	n.Reliability = append(r, RepeatableSession)
+	return n
+}
+
+// Opts builds a map from key-value pairs: Opts("RPORT", "7860").
+func Opts(kv ...string) map[string]string {
+	m := make(map[string]string, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		m[kv[i]] = kv[i+1]
+	}
+	return m
+}
+
+// LinuxCmd returns a single Linux command shell target.
+func LinuxCmd() []Target {
+	return []Target{{Name: "Unix/Linux Command Shell", Platform: "linux", Type: "cmd"}}
+}
+
+// SingleLab wraps a single service into a Lab.
+func SingleLab(name, image string, ports ...string) Lab {
+	return Lab{Services: []Service{NewLabService(name, image, ports...)}}
 }

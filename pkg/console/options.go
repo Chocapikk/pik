@@ -47,7 +47,7 @@ func (c *Console) importTargetDefaults() {
 	if c.targetIdx < 0 || c.targetIdx >= len(targets) {
 		return
 	}
-	for name, val := range targets[c.targetIdx].DefaultOptions {
+	for name, val := range targets[c.targetIdx].Defaults {
 		c.setOpt(name, val)
 	}
 }

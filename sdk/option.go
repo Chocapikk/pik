@@ -131,7 +131,7 @@ func ResolveOptions(mod Exploit) []Option {
 	}
 
 	// Module default overrides
-	for name, val := range mod.Info().DefaultOptions {
+	for name, val := range mod.Info().Defaults {
 		for i := range opts {
 			if opts[i].Name == name {
 				opts[i].Default = val

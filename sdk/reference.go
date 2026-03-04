@@ -49,6 +49,9 @@ func (r Reference) String() string {
 	return string(r.Type) + "-" + r.ID
 }
 
+// Refs returns its arguments as a slice, removing []Reference{} noise from module code.
+func Refs(refs ...Reference) []Reference { return refs }
+
 func CVE(id string) Reference        { return Reference{Type: RefCVE, ID: "CVE-" + id} }
 // GHSA creates a GitHub Security Advisory reference.
 // Use GHSA("xxxx-yyyy-zzzz") for global advisories,

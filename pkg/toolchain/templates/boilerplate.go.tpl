@@ -10,25 +10,23 @@ type {{.StructName}} struct{ sdk.Pik }
 func (m *{{.StructName}}) Info() sdk.Info {
 	return sdk.Info{
 		Description: "{{.Name}} exploit",
-		Detail:      sdk.Dedent(` + "`" + `
+		Detail: sdk.Dedent(` + "`" + `
 			TODO: Describe the vulnerability and exploitation chain.
 		` + "`" + `),
-		Authors:        []string{"TODO"},
-		DisclosureDate: "TODO",
-		Reliability:    sdk.Typical,
-		Stance:         sdk.Aggressive,
-		Notes: sdk.Notes{
-			Stability:   []string{sdk.CrashSafe},
-			SideEffects: []string{sdk.IOCInLogs},
-		},
-		References: []sdk.Reference{
+		Authors: sdk.Authors(sdk.NewAuthor("TODO").WithHandle("TODO").WithEmail("<TODO[at]TODO>")),
+		Disclosure:  "TODO",
+		Reliability: sdk.Typical,
+		Notes:       sdk.SafeNotes().Logs(),
+
+		Refs: sdk.Refs(
 			// sdk.CVE("2026-XXXXX"),
 			// sdk.VulnCheck("advisory-slug"),
-		},
-		Queries: []sdk.Query{
+		),
+		Queries: sdk.Dorks(
 			// sdk.Shodan(` + "`" + `http.title:"{{.Name}}"` + "`" + `),
 			// sdk.FOFA(` + "`" + `title="{{.Name}}"` + "`" + `),
-		},
+		),
+
 		Targets: []sdk.Target{sdk.TargetLinux("amd64")},
 	}
 }
