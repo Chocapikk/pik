@@ -65,7 +65,7 @@ func protoFromPath(modulePath string) string {
 }
 
 // hasParser checks if a module declares a parser dependency in Info().Parsers.
-func hasParser(mod sdk.Exploit, name string) bool {
+func hasParser(mod sdk.Exploit, name sdk.Parser) bool {
 	for _, p := range mod.Info().Parsers {
 		if p == name {
 			return true

@@ -298,7 +298,7 @@ type Info struct {
 	Queries     []Query
 	Targets     []Target
 	Defaults    map[string]string
-	Parsers     []string // optional standalone imports: "xml" -> pkg/xmlutil
+	Parsers     []Parser
 	Lab         Lab
 }
 
@@ -413,6 +413,13 @@ func Opts(kv ...string) map[string]string {
 	}
 	return m
 }
+
+// --- Parsers ---
+
+// Parser identifies an optional parser for standalone builds.
+type Parser string
+
+const XML Parser = "xml"
 
 // LinuxCmd returns a single Linux command shell target.
 func LinuxCmd() []Target {

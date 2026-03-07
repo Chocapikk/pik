@@ -82,7 +82,7 @@ func scaffoldOpts(mod sdk.Exploit) toolchain.ScaffoldOpts {
 		ImportPath: importPath,
 		Proto:      protoFromPath(fullName),
 		Version:    Version,
-		NeedsXML:   hasParser(mod, "xml"),
+		NeedsXML:   hasParser(mod, sdk.XML),
 	}
 	if modRoot, err := findModRoot(); err == nil {
 		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {
