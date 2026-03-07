@@ -45,7 +45,8 @@ func Dorks(queries ...Query) []Query { return queries }
 func Shodan(dork string) Query        { return Query{Engine: "Shodan", Dork: dork} }
 func ZoomEye(dork string) Query       { return Query{Engine: "ZoomEye", Dork: dork} }
 func FOFA(dork string) Query          { return Query{Engine: "FOFA", Dork: dork} }
-func LeakIX(dork, scope string) Query { return Query{Engine: "LeakIX", Dork: dork, Scope: scope} }
+func LeakIX(dork, scope string) Query      { return Query{Engine: "LeakIX", Dork: dork, Scope: scope} }
+func LeakIXPlugin(name string) Query       { return Query{Engine: "LeakIX", Dork: "plugin:" + name, Scope: "leak"} }
 func Google(dork string) Query        { return Query{Engine: "Google", Dork: dork} }
 func Censys(dork string) Query        { return Query{Engine: "Censys", Dork: dork} }
 func Hunter(dork string) Query        { return Query{Engine: "Hunter", Dork: dork} }
