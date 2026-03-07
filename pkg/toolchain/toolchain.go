@@ -196,6 +196,7 @@ type ScaffoldOpts struct {
 	Proto      string // Protocol to import: "http" or "tcp"
 	ModRoot    string // Local repo root (empty = fetch from proxy)
 	Version    string // Module version tag (used when ModRoot is empty)
+	NeedsXML   bool   // Import pkg/xmlutil for XPath support
 }
 
 // Scaffold creates a temp directory with main.go and go.mod for a standalone build.
@@ -207,10 +208,7 @@ func Scaffold(opts ScaffoldOpts) (string, func(), error) {
 	}
 	cleanup := func() { os.RemoveAll(tmpDir) }
 
-	if err := RenderToFile(filepath.Join(tmpDir, "main.go"), "standalone_main.go.tpl", map[string]string{
-		"ImportPath": opts.ImportPath,
-		"Proto":      opts.Proto,
-	}); err != nil {
+	if err := RenderToFile(filepath.Join(tmpDir, "main.go"), "standalone_main.go.tpl", opts.TemplateData()); err != nil {
 		cleanup()
 		return "", nil, err
 	}
@@ -229,6 +227,19 @@ func Scaffold(opts ScaffoldOpts) (string, func(), error) {
 	}
 
 	return tmpDir, cleanup, nil
+}
+
+// TemplateData returns the template variables for standalone_main.go.tpl.
+func (o ScaffoldOpts) TemplateData() map[string]string {
+	xmlutil := ""
+	if o.NeedsXML {
+		xmlutil = "1"
+	}
+	return map[string]string{
+		"ImportPath": o.ImportPath,
+		"Proto":      o.Proto,
+		"XMLUtil":    xmlutil,
+	}
 }
 
 // --- Paths ---

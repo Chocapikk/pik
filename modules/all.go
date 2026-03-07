@@ -16,6 +16,9 @@ import (
 	_ "github.com/Chocapikk/pik/pkg/protocol/http"
 	_ "github.com/Chocapikk/pik/pkg/protocol/tcp"
 
+	// Parsers
+	_ "github.com/Chocapikk/pik/pkg/xmlutil"
+
 	// C2 backends
 	_ "github.com/Chocapikk/pik/pkg/c2/httpshell"
 	_ "github.com/Chocapikk/pik/pkg/c2/sliver"

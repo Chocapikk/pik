@@ -59,11 +59,8 @@ func generateSource(name, outputDir string) error {
 		return err
 	}
 
-	opts := scaffoldOpts(fullName)
-	if err := toolchain.RenderToFile(filepath.Join(outputDir, "main.go"), "standalone_main.go.tpl", map[string]string{
-		"ImportPath": opts.ImportPath,
-		"Proto":      opts.Proto,
-	}); err != nil {
+	opts := scaffoldOpts(mod)
+	if err := toolchain.RenderToFile(filepath.Join(outputDir, "main.go"), "standalone_main.go.tpl", opts.TemplateData()); err != nil {
 		return err
 	}
 	if err := toolchain.RenderToFile(filepath.Join(outputDir, "go.mod"), "standalone_gomod.tpl", map[string]string{
@@ -78,12 +75,14 @@ func generateSource(name, outputDir string) error {
 	return nil
 }
 
-func scaffoldOpts(fullName string) toolchain.ScaffoldOpts {
+func scaffoldOpts(mod sdk.Exploit) toolchain.ScaffoldOpts {
+	fullName := sdk.NameOf(mod)
 	importPath := pikModule + "/modules/" + filepath.Dir(fullName)
 	opts := toolchain.ScaffoldOpts{
 		ImportPath: importPath,
 		Proto:      protoFromPath(fullName),
 		Version:    Version,
+		NeedsXML:   hasParser(mod, "xml"),
 	}
 	if modRoot, err := findModRoot(); err == nil {
 		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {
@@ -105,7 +104,7 @@ func buildExploit(name, outputPath, targetOS, targetArch string) error {
 
 	output.Status("Building standalone binary for %s", fullName)
 
-	srcDir, cleanup, err := toolchain.Scaffold(scaffoldOpts(fullName))
+	srcDir, cleanup, err := toolchain.Scaffold(scaffoldOpts(mod))
 	if err != nil {
 		return err
 	}

@@ -64,6 +64,16 @@ func protoFromPath(modulePath string) string {
 	return "http"
 }
 
+// hasParser checks if a module declares a parser dependency in Info().Parsers.
+func hasParser(mod sdk.Exploit, name string) bool {
+	for _, p := range mod.Info().Parsers {
+		if p == name {
+			return true
+		}
+	}
+	return false
+}
+
 // readGoModModule reads the module path from a go.mod file.
 func readGoModModule(root string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(root, "go.mod"))

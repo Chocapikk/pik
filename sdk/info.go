@@ -298,6 +298,7 @@ type Info struct {
 	Queries     []Query
 	Targets     []Target
 	Defaults    map[string]string
+	Parsers     []string // optional standalone imports: "xml" -> pkg/xmlutil
 	Lab         Lab
 }
 

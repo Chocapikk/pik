@@ -5,6 +5,9 @@ import (
 	_ "github.com/Chocapikk/pik/pkg/cli"
 	_ "github.com/Chocapikk/pik/pkg/lab"
 	_ "github.com/Chocapikk/pik/pkg/protocol/{{.Proto}}"
+{{- if .XMLUtil}}
+	_ "github.com/Chocapikk/pik/pkg/xmlutil"
+{{- end}}
 	_ "{{.ImportPath}}"
 )
 
