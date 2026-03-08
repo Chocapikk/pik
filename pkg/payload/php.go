@@ -24,11 +24,11 @@ func phpXorLiteral(s string) string {
 	for i, b := range data {
 		for {
 			k := byte(sdk.RandInt(33, 126))
-			if k == 39 || k == 92 {
+			if k == 37 || k == 39 || k == 92 {
 				continue
 			}
 			r := b ^ k
-			if r >= 33 && r <= 126 && r != 39 && r != 92 {
+			if r >= 33 && r <= 126 && r != 37 && r != 39 && r != 92 {
 				key[i] = k
 				result[i] = r
 				break
