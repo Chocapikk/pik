@@ -69,33 +69,45 @@ func (b *SessionBase) ShutdownManager() error {
 	return nil
 }
 
-// PayloadMap is a map of payload names to generator functions.
-type PayloadMap map[string]func(string, int) string
+// PayloadGen is a function that generates a reverse shell command for a given host:port.
+type PayloadGen func(lhost string, lport int) string
+
+// PayloadMap is a map of payload names to generators.
+type PayloadMap map[string]PayloadGen
 
 // ResolvePayload looks up a payload by type in the map, falling back to the given default.
-func ResolvePayload(payloads PayloadMap, lhost string, lport int, payloadType string, fallback func(string, int) string) (string, error) {
+func ResolvePayload(payloads PayloadMap, lhost string, lport int, payloadType string, fallback PayloadGen) (string, error) {
 	if gen, ok := payloads[payloadType]; ok {
 		return gen(lhost, lport), nil
 	}
 	return fallback(lhost, lport), nil
 }
 
-// Factory creates a Backend from a config path.
-type Factory func(configPath string) Backend
+// Configurable is an optional interface for backends that need
+// external configuration (e.g. Sliver operator config file).
+type Configurable interface {
+	Configure(configPath string)
+}
 
-var factories = map[string]Factory{}
+var registry = map[string]Backend{}
 
-// RegisterFactory registers a named C2 backend factory.
+// Register registers a C2 backend by its Name().
 // Called from init() in each backend package.
-func RegisterFactory(name string, factory Factory) {
-	factories[name] = factory
+func Register(b Backend) {
+	registry[b.Name()] = b
 }
 
 // Resolve returns a Backend for the given C2 type.
 // Returns nil if the type is "shell" or unregistered (runner defaults to built-in shell).
 func Resolve(c2Type, configPath string) Backend {
-	if factory, ok := factories[c2Type]; ok {
-		return factory(configPath)
+	b, ok := registry[c2Type]
+	if !ok {
+		return nil
 	}
-	return nil
+	if configPath != "" {
+		if cb, ok := b.(Configurable); ok {
+			cb.Configure(configPath)
+		}
+	}
+	return b
 }

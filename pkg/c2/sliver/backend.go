@@ -20,11 +20,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/text"
 )
 
-func init() {
-	c2.RegisterFactory("sliver", func(configPath string) c2.Backend {
-		return New(configPath)
-	})
-}
+func init() { c2.Register(New()) }
 
 // Backend implements c2.Backend for Sliver C2 integration.
 type Backend struct {
@@ -38,10 +34,11 @@ type Backend struct {
 	tcpStageLn net.Listener
 }
 
-// New creates a Sliver backend from an operator config file path.
-func New(configPath string) *Backend {
-	return &Backend{configPath: configPath}
-}
+// New creates a Sliver backend.
+func New() *Backend { return &Backend{} }
+
+// Configure sets the operator config file path.
+func (b *Backend) Configure(configPath string) { b.configPath = configPath }
 
 func (b *Backend) Name() string { return "sliver" }
 

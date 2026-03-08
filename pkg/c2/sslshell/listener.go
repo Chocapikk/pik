@@ -20,9 +20,7 @@ import (
 	"github.com/Chocapikk/pik/pkg/payload"
 )
 
-func init() {
-	c2.RegisterFactory("sslshell", func(_ string) c2.Backend { return New() })
-}
+func init() { c2.Register(New()) }
 
 // Listener is a TLS reverse shell listener.
 type Listener struct {
