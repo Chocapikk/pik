@@ -84,7 +84,8 @@ func scaffoldOpts(mod sdk.Exploit) toolchain.ScaffoldOpts {
 		ModuleName:      fullName,
 		Proto:           protoFromPath(fullName),
 		Version:         Version,
-		NeedsXML:        hasParser(mod, sdk.XML),
+		NeedsXML:        hasFeature(mod, sdk.XML),
+		NeedsFaker:      hasFeature(mod, sdk.FakeData),
 		NeedsHTTPServer: needsHTTPSrv,
 	}
 	if modRoot, err := findModRoot(); err == nil {

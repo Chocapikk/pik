@@ -1,6 +1,8 @@
 package http
 
 import (
+	"bytes"
+	"io"
 	"net/url"
 	"time"
 
@@ -40,6 +42,11 @@ func init() {
 				return nil, err
 			}
 
+			// Drain body to complete the HTTP lifecycle before returning.
+			// This ensures Elapsed() timing captures the full server
+			// processing time (critical for sleep-based vuln checks).
+			data, _ := resp.BodyBytes()
+
 			headers := make(map[string]string)
 			for k, vals := range resp.Header {
 				if len(vals) > 0 {
@@ -47,9 +54,11 @@ func init() {
 				}
 			}
 
-			r := &sdk.HTTPResponse{StatusCode: resp.StatusCode, Body: resp.Body, Headers: headers}
-			r.SetContainsFn(resp.ContainsAny)
-			return r, nil
+			return &sdk.HTTPResponse{
+				StatusCode: resp.StatusCode,
+				Body:       io.NopCloser(bytes.NewReader(data)),
+				Headers:    headers,
+			}, nil
 		}
 	})
 }

@@ -198,6 +198,7 @@ type ScaffoldOpts struct {
 	ModRoot         string // Local repo root (empty = fetch from proxy)
 	Version         string // Module version tag (used when ModRoot is empty)
 	NeedsXML        bool   // Import pkg/xmlutil for XPath support
+	NeedsFaker      bool   // Import pkg/fake for realistic fake data
 	NeedsHTTPServer bool   // Import pkg/httpsrv for exploit HTTP server
 }
 
@@ -237,6 +238,10 @@ func (o ScaffoldOpts) TemplateData() map[string]string {
 	if o.NeedsXML {
 		xmlutil = "1"
 	}
+	faker := ""
+	if o.NeedsFaker {
+		faker = "1"
+	}
 	httpsrv := ""
 	if o.NeedsHTTPServer {
 		httpsrv = "1"
@@ -246,6 +251,7 @@ func (o ScaffoldOpts) TemplateData() map[string]string {
 		"ModuleName": o.ModuleName,
 		"Proto":      o.Proto,
 		"XMLUtil":    xmlutil,
+		"Faker":      faker,
 		"HTTPServer": httpsrv,
 	}
 }

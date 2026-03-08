@@ -305,7 +305,7 @@ type Info struct {
 	Queries     []Query
 	Targets     []Target
 	Defaults    map[string]string
-	Parsers     []Parser
+	Features    []Feature
 	Lab         Lab
 }
 
@@ -421,12 +421,15 @@ func Opts(kv ...string) map[string]string {
 	return m
 }
 
-// --- Parsers ---
+// --- Features ---
 
-// Parser identifies an optional parser for standalone builds.
-type Parser string
+// Feature identifies an optional dependency for standalone builds.
+type Feature string
 
-const XML Parser = "xml"
+const (
+	XML      Feature = "xml"
+	FakeData Feature = "fake"
+)
 
 // LinuxCmd returns a single Linux command shell target.
 func LinuxCmd() []Target {

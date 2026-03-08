@@ -8,6 +8,9 @@ import (
 {{- if .XMLUtil}}
 	_ "github.com/Chocapikk/pik/pkg/xmlutil"
 {{- end}}
+{{- if .Faker}}
+	_ "github.com/Chocapikk/pik/pkg/fake"
+{{- end}}
 {{- if .HTTPServer}}
 	_ "github.com/Chocapikk/pik/pkg/httpsrv"
 {{- end}}

@@ -16,7 +16,8 @@ import (
 	_ "github.com/Chocapikk/pik/pkg/protocol/http"
 	_ "github.com/Chocapikk/pik/pkg/protocol/tcp"
 
-	// Parsers
+	// Features
+	_ "github.com/Chocapikk/pik/pkg/fake"
 	_ "github.com/Chocapikk/pik/pkg/xmlutil"
 
 	// C2 backends

@@ -64,9 +64,9 @@ func protoFromPath(modulePath string) string {
 	return "http"
 }
 
-// hasParser checks if a module declares a parser dependency in Info().Parsers.
-func hasParser(mod sdk.Exploit, name sdk.Parser) bool {
-	for _, p := range mod.Info().Parsers {
+// hasFeature checks if a module declares a feature dependency in Info().Features.
+func hasFeature(mod sdk.Exploit, name sdk.Feature) bool {
+	for _, p := range mod.Info().Features {
 		if p == name {
 			return true
 		}
