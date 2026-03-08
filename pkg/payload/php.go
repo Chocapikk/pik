@@ -35,7 +35,13 @@ func phpXorLiteral(s string) string {
 			}
 		}
 	}
-	return sdk.Sprintf(`('%s'^'%s')`, string(result), string(key))
+	v1, v2 := phpVarName(), phpVarName()
+	if sdk.RandBool() {
+		return sdk.Sprintf(`(($%s='%s').($%s='%s')?~$%s&$%s|$%s&~$%s:'')`,
+			v1, string(result), v2, string(key), v1, v2, v1, v2)
+	}
+	return sdk.Sprintf(`(($%s='%s').($%s='%s')?($%s|$%s)&~($%s&$%s):'')`,
+		v1, string(result), v2, string(key), v1, v2, v1, v2)
 }
 
 // --- Payload generators ---
