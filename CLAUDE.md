@@ -8,7 +8,9 @@ Go exploit framework. Interactive console with multi-session, multi-C2, CmdStage
 sdk/                Types, interfaces, constants (source of truth)
   exploit.go        Exploit, Checker, CmdStager, CommandExecutor interfaces
   context.go        Execution context with Commands(), Target(), SetCommands(), SetTarget()
-  info.go           Info, Target, Lab, Service, Author, CheckResult, Reliability
+  info.go           Info, Target, Lab, Service, Author, CheckResult, Reliability, Feature
+  fake.go           Faker interface + late binding via SetFaker()
+  timing.go         SleepCheck() helper for sleep-based timing vuln checks
   lab.go            LabManager interface + late binding via SetLabManager()
   run.go            sdk.Run() with late binding via SetRunner()
 
@@ -72,6 +74,9 @@ pkg/enricher/       Protocol option enrichers (imported by runner)
   http.go           HTTP enricher (SSL, USER_AGENT, TARGETURI, HTTP_TRACE - all advanced)
   tcp.go            TCP enricher (TCP_TIMEOUT, TCP_TRACE - all advanced)
 
+pkg/fake/           Faker integration (gofakeit, lazy-loaded via init())
+  fake.go           init() registers sdk.SetFaker(), wraps gofakeit
+
 pkg/encode/         Encoding helpers
   encode.go         Base64, Hex, URL, UTF16LE, XOR, ROT13
   binary.go         Buffer (fluent binary packing: Byte, Uint16/32/64, String, NameList, Zeroes)
@@ -90,7 +95,7 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 
 - Types in `sdk/`, all internal packages import `sdk`. No re-export, no codegen.
 - `sdk.Run()` uses late binding: `pkg/cli.init()` calls `sdk.SetRunner(RunStandaloneWith)`.
-- Standalone binaries need: `import "sdk"` + `import _ "pkg/cli"` + `import _ "pkg/protocol/<proto>"`. Add `_ "pkg/lab"` + `sdk.WithLab()` for lab support.
+- Standalone binaries need: `import "sdk"` + `import _ "pkg/cli"` + `import _ "pkg/protocol/<proto>"`. Add `_ "pkg/lab"` + `sdk.WithLab()` for lab support. Features (`pkg/fake`, `pkg/xmlutil`) are auto-added by scaffold based on `Info().Features`.
 - Option enrichers (`sdk.RegisterEnricher`) auto-inject LHOST, LPORT, C2, HTTP/TCP options etc. Enrichers in `pkg/enricher/`, protocol factories in `pkg/protocol/*/option.go`.
 - Protocol late binding: `sdk.RegisterSenderFactory` (structured protos), `sdk.SetDialFactory` (raw connections), `sdk.SetPoolFactory` (pooling). Only imported protocols are compiled into the binary.
 - `pik build <module>`: compiles standalone binary. `pik generate <module>`: emits source code. Both auto-detect protocol from module path.
@@ -99,6 +104,8 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Target types are module-defined strings (e.g. `"cmd"`, `"dropper"`). Runner dispatches on type, module switches in Exploit().
 - CmdStager: runner sets commands on Context via `SetCommands()`, module reads `run.Commands()` and loops.
 - Check results: `sdk.Vulnerable("reason")`, `sdk.Safe("reason")`, `sdk.Unknown(err)`.
+- Timing checks: `sdk.SleepCheck(run, func(delay int) error { ... })` - 3 rounds, random delay 2-4s, returns Vulnerable if 2+ match.
+- Fake data: `sdk.Fake().DomainName()`, `.Email()`, `.URL()`, `.IPv4Address()`, etc. Late binding via `pkg/fake` init(). Module declares `Features: []sdk.Feature{sdk.FakeData}`.
 - Console commands are a dynamic map (`registerCommands()`). Adding a command = one line.
 - Console `use <id>` selects module + target by global index from `list`.
 - C2 backends self-register via `c2.RegisterFactory()` in `init()`.
@@ -109,6 +116,8 @@ pkg/stager/         TCP stager shellcode (memfd_create, XOR, fileless)
 - Binary packing: `sdk.NewBuffer().Byte(0x14).Uint32(val).String("data").NameList("a","b").Build()` - generic fluent builder for crafting protocol messages.
 - Protocol tracing: `HTTP_TRACE=true` or `TCP_TRACE=true` as advanced options (not --debug).
 - HTTP client preserves raw header casing (no canonicalization). Some servers are case-sensitive.
+- HTTP sender factory drains response body before returning (ensures accurate Elapsed() timing for sleep-based checks).
+- Features (standalone build deps): `sdk.Feature` declared in `Info().Features`. `sdk.XML` (xmlutil), `sdk.FakeData` (faker). Scaffold template auto-includes matching `_ "pkg/..."` imports. Infrastructure deps (HTTPServerModule) use interface markers instead.
 - Author: `sdk.Author{Name, Handle, Email, Company}`. Email must use `<user[at]domain>` format, Register() panics on raw @.
 - References: `sdk.CVE("2025-XXXXX")`, `sdk.GHSA("xxxx-yyyy-zzzz")` (global) or `sdk.GHSA("xxxx-yyyy-zzzz", "owner/repo")` (repo-scoped).
 - String helpers: `sdk.Contains(s, sub)`, `sdk.ContainsI(s, sub)` (case-insensitive).
