@@ -101,6 +101,15 @@ func URLRaw(s string) string {
 	return b.String()
 }
 
+// Reverse returns the string reversed byte-by-byte.
+func Reverse(s string) string {
+	b := []byte(s)
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+	return string(b)
+}
+
 // ROT13 applies ROT13 substitution cipher.
 func ROT13(s string) string {
 	var b strings.Builder

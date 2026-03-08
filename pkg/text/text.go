@@ -63,6 +63,14 @@ func RandElement(items []string) string {
 	return items[rand.IntN(len(items))]
 }
 
+// Shuffle returns a shuffled copy of the given string slice.
+func Shuffle(items []string) []string {
+	out := make([]string, len(items))
+	copy(out, items)
+	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	return out
+}
+
 // RandUserAgent generates a random realistic browser user agent string.
 // Assembles components dynamically instead of picking from a static list.
 func RandUserAgent() string {
