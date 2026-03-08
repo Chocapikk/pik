@@ -81,6 +81,7 @@ func scaffoldOpts(mod sdk.Exploit) toolchain.ScaffoldOpts {
 	_, needsHTTPSrv := mod.(sdk.HTTPServerModule)
 	opts := toolchain.ScaffoldOpts{
 		ImportPath:      importPath,
+		ModuleName:      fullName,
 		Proto:           protoFromPath(fullName),
 		Version:         Version,
 		NeedsXML:        hasParser(mod, sdk.XML),

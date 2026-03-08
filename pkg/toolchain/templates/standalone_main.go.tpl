@@ -15,9 +15,9 @@ import (
 )
 
 func main() {
-	mods := sdk.List()
-	if len(mods) == 0 {
-		panic("no module registered")
+	mod := sdk.Get("{{.ModuleName}}")
+	if mod == nil {
+		panic("module {{.ModuleName}} not found")
 	}
-	sdk.Run(mods[0], sdk.WithConsole(), sdk.WithLab())
+	sdk.Run(mod, sdk.WithConsole(), sdk.WithLab())
 }
