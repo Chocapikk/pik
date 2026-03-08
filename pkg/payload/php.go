@@ -301,7 +301,7 @@ func phpMaybeJunk(enc func(string) string) string {
 
 // --- Helpers ---
 
-func phpVarName() string { return sdk.RandAlpha(6) }
+func phpVarName() string { return sdk.RandAlpha(sdk.RandInt(4, 10)) }
 
 func phpVars(names ...string) map[string]string {
 	m := make(map[string]string, len(names))
