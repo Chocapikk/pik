@@ -196,6 +196,7 @@ type Service struct {
 	Cmd         []string          // override entrypoint command
 	Volumes     []string          // bind mounts (host:container)
 	Healthcheck []string          // CMD-SHELL health check command
+	PostStart   []string          // shell commands to exec after container start
 }
 
 const randPrefix = "{{rand:"
@@ -242,6 +243,12 @@ func (s Service) WithVolume(bind string) Service {
 // WithHealthcheck sets a CMD-SHELL health check.
 func (s Service) WithHealthcheck(cmd string) Service {
 	s.Healthcheck = []string{cmd}
+	return s
+}
+
+// WithPostStart adds shell commands to run inside the container after start.
+func (s Service) WithPostStart(cmds ...string) Service {
+	s.PostStart = append(s.PostStart, cmds...)
 	return s
 }
 

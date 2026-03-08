@@ -166,6 +166,13 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 			}
 			output.Success("Started %s (%s)", containerName, svc.Image)
 
+			for _, cmd := range svc.PostStart {
+				output.Status("Exec: %s", cmd)
+				if err := execInContainer(ctx, cli, resp.ID, cmd); err != nil {
+					return fmt.Errorf("post-start exec in %s: %w", containerName, err)
+				}
+			}
+
 			if len(svc.Healthcheck) > 0 {
 				output.Status("Waiting for %s to be healthy", svc.Name)
 				err := poll(ctx, 120*time.Second, 2*time.Second, func() error {
@@ -435,6 +442,36 @@ func teardown(ctx context.Context, cli *client.Client, name string) {
 	for _, n := range networks {
 		cli.NetworkRemove(ctx, n.ID)
 	}
+}
+
+// execInContainer runs a shell command inside a running container.
+// It attaches to the exec stream and blocks until the command completes.
+func execInContainer(ctx context.Context, cli *client.Client, containerID, cmd string) error {
+	execCfg := container.ExecOptions{
+		Cmd:          []string{"sh", "-c", cmd},
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	exec, err := cli.ContainerExecCreate(ctx, containerID, execCfg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := cli.ContainerExecAttach(ctx, exec.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return err
+	}
+	out, _ := io.ReadAll(resp.Reader)
+	resp.Close()
+
+	inspect, err := cli.ContainerExecInspect(ctx, exec.ID)
+	if err != nil {
+		return err
+	}
+	if inspect.ExitCode != 0 {
+		return fmt.Errorf("exit code %d: %s", inspect.ExitCode, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // parsePorts converts simple port strings ("2222", "80") to Docker port structs.

