@@ -319,8 +319,30 @@ func WaitProbe(ctx context.Context, timeout time.Duration, fn func() error) erro
 	return poll(ctx, timeout, 3*time.Second, fn)
 }
 
-// DockerGateway returns the default Docker bridge gateway IP.
+// DockerGateway returns the gateway IP reachable from running pik lab
+// containers. It inspects pik-managed containers to find the actual
+// network gateway instead of assuming the default bridge (172.17.0.1).
 func DockerGateway() string {
+	var gw string
+	withClient(func(cli *client.Client) error {
+		containers, err := cli.ContainerList(context.Background(), container.ListOptions{
+			Filters: filters.NewArgs(filters.Arg("label", labelLab)),
+		})
+		if err != nil || len(containers) == 0 {
+			return nil
+		}
+		for _, netSettings := range containers[0].NetworkSettings.Networks {
+			if netSettings.Gateway != "" {
+				gw = netSettings.Gateway
+				return nil
+			}
+		}
+		return nil
+	})
+	if gw != "" {
+		return gw
+	}
+	// Fallback: default Docker bridge.
 	conn, err := net.DialTimeout("tcp", "172.17.0.1:1", 100*time.Millisecond)
 	if conn != nil {
 		conn.Close()

@@ -68,6 +68,11 @@ func Dedent(s string) string {
 
 // --- time helpers ---
 
+// Sleep pauses execution for the given number of seconds.
+func Sleep(seconds int) {
+	time.Sleep(time.Duration(seconds) * time.Second)
+}
+
 // Poll calls fn repeatedly until it returns true or timeout expires.
 func Poll(timeoutSec int, fn func() bool) error {
 	deadline := time.After(time.Duration(timeoutSec) * time.Second)
