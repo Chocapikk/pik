@@ -26,6 +26,7 @@ type Context struct {
 	Base64BashFn func(string) string
 	CommentFn    func(string) string
 	RandTextFn   func(int) string
+	EncoderFn    func(string) string
 }
 
 // NewContext creates a Context with option values and payload command.
@@ -206,6 +207,15 @@ func (c *Context) RandText(n int) string {
 		return c.RandTextFn(n)
 	}
 	return "x"
+}
+
+// EncodedPayload returns the payload wrapped with the selected encoder.
+// Modules should use this instead of manually calling Base64Bash(Payload()).
+func (c *Context) EncodedPayload() string {
+	if c.EncoderFn != nil {
+		return c.EncoderFn(c.payload)
+	}
+	return c.payload
 }
 
 // --- Timing ---

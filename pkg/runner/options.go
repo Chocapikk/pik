@@ -21,6 +21,7 @@ func enrichBase(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 		sdk.Option{Name: "LHOST", Type: sdk.TypeAddress, Required: true, Desc: "Callback host for payload"},
 		sdk.OptPort("LPORT", 4444, "Callback port for payload"),
 		sdk.OptEnum("PAYLOAD", "cmd/bash/reverse_tcp", "Payload type", payload.Names()...),
+		sdk.OptAdvanced(sdk.OptEnum("ENCODER", "cmd/base64", "Payload encoder", sdk.EncoderNames("")...)),
 		sdk.OptAdvanced(sdk.OptString("PROXIES", "", "Proxy URL (http://host:port or socks5://host:port)")),
 		sdk.OptAdvanced(sdk.OptEnum("AUTOCHECK", "true", "Auto-check before exploit", "true", "false")),
 	)

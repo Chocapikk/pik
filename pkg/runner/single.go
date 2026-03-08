@@ -154,7 +154,26 @@ func (d *delivery) directPayload() error {
 
 	run := BuildContext(d.params, payloadCmd)
 	run.SetTarget(d.modTarget)
+	run.EncoderFn = resolveEncoder(d.params, d.platform)
 	return d.exploit(run)
+}
+
+// resolveEncoder returns the encode function for the selected ENCODER option.
+func resolveEncoder(params sdk.Params, platform string) func(string) string {
+	if name := params.Get("ENCODER"); name != "" {
+		if enc := sdk.GetEncoder(name); enc != nil {
+			return enc.Fn
+		}
+	}
+	if platform == "windows" {
+		if enc := sdk.GetEncoder("cmd/powershell"); enc != nil {
+			return enc.Fn
+		}
+	}
+	if enc := sdk.GetEncoder("cmd/base64"); enc != nil {
+		return enc.Fn
+	}
+	return func(s string) string { return s }
 }
 
 // --- Delivery: cmdstager ---
