@@ -14,8 +14,10 @@ func SetPHPReverseShell(fn func(string, int) string) { phpReverseShellFn = fn }
 func SetPHPSystem(fn func(string) string) { phpSystemFn = fn }
 
 // PHPReverseShell returns a self-deleting PHP reverse shell for file drop.
-func PHPReverseShell(lhost string, lport int) string {
-	return phpReverseShellFn(lhost, lport)
+// Reads LHOST/LPORT from the context automatically.
+func PHPReverseShell(run *Context) string {
+	p := run.Params()
+	return phpReverseShellFn(p.Lhost(), p.Lport())
 }
 
 // PHPSystem returns a self-deleting PHP system exec for file drop.
