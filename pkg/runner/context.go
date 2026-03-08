@@ -16,7 +16,6 @@ func BuildContext(params sdk.Params, payloadCmd string) *sdk.Context {
 	ctx.SuccessFn = output.Success
 	ctx.ErrorFn = output.Error
 	ctx.WarningFn = output.Warning
-	ctx.Base64BashFn = payload.Base64Bash
 	ctx.CommentFn = payload.CommentTrail
 	ctx.RandTextFn = text.RandText
 	sdk.WireSenders(ctx, params)

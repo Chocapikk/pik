@@ -23,10 +23,9 @@ type Context struct {
 	SuccessFn    func(string, ...any)
 	ErrorFn      func(string, ...any)
 	WarningFn    func(string, ...any)
-	Base64BashFn func(string) string
-	CommentFn    func(string) string
-	RandTextFn   func(int) string
-	EncoderFn    func(string) string
+	CommentFn  func(string) string
+	RandTextFn func(int) string
+	EncoderFn  func(string) string
 }
 
 // NewContext creates a Context with option values and payload command.
@@ -187,13 +186,6 @@ func (c *Context) Warning(format string, args ...any) {
 }
 
 // --- Payload helpers ---
-
-func (c *Context) Base64Bash(cmd string) string {
-	if c.Base64BashFn != nil {
-		return c.Base64BashFn(cmd)
-	}
-	return cmd
-}
 
 func (c *Context) CommentTrail(cmd string) string {
 	if c.CommentFn != nil {
