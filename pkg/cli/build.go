@@ -78,11 +78,13 @@ func generateSource(name, outputDir string) error {
 func scaffoldOpts(mod sdk.Exploit) toolchain.ScaffoldOpts {
 	fullName := sdk.NameOf(mod)
 	importPath := pikModule + "/modules/" + filepath.Dir(fullName)
+	_, needsHTTPSrv := mod.(sdk.HTTPServerModule)
 	opts := toolchain.ScaffoldOpts{
-		ImportPath: importPath,
-		Proto:      protoFromPath(fullName),
-		Version:    Version,
-		NeedsXML:   hasParser(mod, sdk.XML),
+		ImportPath:      importPath,
+		Proto:           protoFromPath(fullName),
+		Version:         Version,
+		NeedsXML:        hasParser(mod, sdk.XML),
+		NeedsHTTPServer: needsHTTPSrv,
 	}
 	if modRoot, err := findModRoot(); err == nil {
 		if goMod, err := readGoModModule(modRoot); err == nil && goMod == pikModule {

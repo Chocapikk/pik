@@ -36,6 +36,17 @@ type delivery struct {
 
 // exploit runs the module and waits for a session.
 func (d *delivery) exploit(run *sdk.Context) error {
+	// Start exploit HTTP server if the module needs one.
+	if _, ok := d.mod.(sdk.HTTPServerModule); ok {
+		url, stop, err := sdk.StartHTTPServer(d.params, run.Mux())
+		if err != nil {
+			return fmt.Errorf("exploit http server: %w", err)
+		}
+		defer stop()
+		run.SetExploitURL(url)
+		output.Status("Exploit HTTP server on %s", url)
+	}
+
 	output.Status("Exploiting %s", d.target)
 	if err := d.mod.Exploit(run); err != nil {
 		return fmt.Errorf("exploit failed: %w", err)
@@ -73,7 +84,7 @@ func RunSingle(ctx context.Context, mod sdk.Exploit, params sdk.Params, opts Run
 	}
 
 	backend := resolveC2(params)
-	if err := backend.Setup(params.Srvhost(), params.Srvport()); err != nil {
+	if err := backend.Setup(params.Lhost(), params.Lport()); err != nil {
 		return fmt.Errorf("c2 setup failed: %w", err)
 	}
 	defer func() { _ = backend.Shutdown() }()

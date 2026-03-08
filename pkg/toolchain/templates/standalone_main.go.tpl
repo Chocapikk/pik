@@ -8,6 +8,9 @@ import (
 {{- if .XMLUtil}}
 	_ "github.com/Chocapikk/pik/pkg/xmlutil"
 {{- end}}
+{{- if .HTTPServer}}
+	_ "github.com/Chocapikk/pik/pkg/httpsrv"
+{{- end}}
 	_ "{{.ImportPath}}"
 )
 

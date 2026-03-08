@@ -66,12 +66,6 @@ func (p Params) Lport() int { return p.IntOr("LPORT", 4444) }
 // Arch returns the ARCH parameter, defaulting to "amd64".
 func (p Params) Arch() string { return p.GetOr("ARCH", "amd64") }
 
-// Srvhost returns the local bind address. Falls back to LHOST.
-func (p Params) Srvhost() string { return p.GetOr("SRVHOST", p.Lhost()) }
-
-// Srvport returns the local bind port. Falls back to LPORT.
-func (p Params) Srvport() int { return p.IntOr("SRVPORT", p.Lport()) }
-
 // Tunnel returns the tunnel URL if set.
 func (p Params) Tunnel() string { return p.Get("TUNNEL") }
 

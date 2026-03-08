@@ -39,10 +39,10 @@ func newParams(values map[string]string) sdk.Params {
 	return sdk.NewParams(context.Background(), values)
 }
 
-// defaultParams creates Params pre-filled with module option defaults.
+// defaultParams creates Params pre-filled with all option defaults (module + enrichers).
 func defaultParams(mod sdk.Exploit) sdk.Params {
 	values := make(map[string]string)
-	for _, opt := range mod.Options() {
+	for _, opt := range sdk.ResolveOptions(mod) {
 		if opt.Default != "" {
 			values[strings.ToUpper(opt.Name)] = opt.Default
 		}

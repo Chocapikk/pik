@@ -16,6 +16,7 @@ type Context struct {
 	startTime time.Time
 	timing    bool
 	senders   map[string]any // protocol -> send function
+	mux       *ServerMux     // exploit HTTP server route table
 
 	// Function hooks injected by the runner.
 	DialFn       func() (Conn, error)
@@ -26,6 +27,7 @@ type Context struct {
 	CommentFn  func(string) string
 	RandTextFn func(int) string
 	EncoderFn  func(string) string
+	exploitURL string
 }
 
 // NewContext creates a Context with option values and payload command.
@@ -199,6 +201,31 @@ func (c *Context) RandText(n int) string {
 		return c.RandTextFn(n)
 	}
 	return "x"
+}
+
+// ExploitURL returns the URL of the exploit HTTP server started by the runner.
+func (c *Context) ExploitURL() string { return c.exploitURL }
+
+// SetExploitURL is called by the runner to set the exploit server URL.
+func (c *Context) SetExploitURL(url string) { c.exploitURL = url }
+
+// Mux returns the exploit HTTP server route table.
+// The runner uses this to dispatch incoming requests.
+func (c *Context) Mux() *ServerMux {
+	if c.mux == nil {
+		c.mux = &ServerMux{}
+	}
+	return c.mux
+}
+
+// ServeRoute registers a route on the exploit HTTP server.
+func (c *Context) ServeRoute(pattern, contentType string, body []byte) {
+	c.Mux().ServeRoute(pattern, contentType, body)
+}
+
+// WaitRoutes blocks until all registered patterns have been hit or timeout.
+func (c *Context) WaitRoutes(timeoutSec int, patterns ...string) error {
+	return c.Mux().WaitRoutes(timeoutSec, patterns...)
 }
 
 // EncodedPayload returns the payload wrapped with the selected encoder.

@@ -192,11 +192,12 @@ func extractTarGz(r io.Reader, dest string) error {
 
 // ScaffoldOpts configures standalone scaffold generation.
 type ScaffoldOpts struct {
-	ImportPath string // Go import path of the module package
-	Proto      string // Protocol to import: "http" or "tcp"
-	ModRoot    string // Local repo root (empty = fetch from proxy)
-	Version    string // Module version tag (used when ModRoot is empty)
-	NeedsXML   bool   // Import pkg/xmlutil for XPath support
+	ImportPath     string // Go import path of the module package
+	Proto          string // Protocol to import: "http" or "tcp"
+	ModRoot        string // Local repo root (empty = fetch from proxy)
+	Version        string // Module version tag (used when ModRoot is empty)
+	NeedsXML       bool   // Import pkg/xmlutil for XPath support
+	NeedsHTTPServer bool  // Import pkg/httpsrv for exploit HTTP server
 }
 
 // Scaffold creates a temp directory with main.go and go.mod for a standalone build.
@@ -235,10 +236,15 @@ func (o ScaffoldOpts) TemplateData() map[string]string {
 	if o.NeedsXML {
 		xmlutil = "1"
 	}
+	httpsrv := ""
+	if o.NeedsHTTPServer {
+		httpsrv = "1"
+	}
 	return map[string]string{
 		"ImportPath": o.ImportPath,
 		"Proto":      o.Proto,
 		"XMLUtil":    xmlutil,
+		"HTTPServer": httpsrv,
 	}
 }
 

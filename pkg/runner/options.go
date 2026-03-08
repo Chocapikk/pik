@@ -9,6 +9,7 @@ import (
 func init() {
 	sdk.RegisterEnricher(enrichBase)
 	sdk.RegisterEnricher(enrichC2)
+	sdk.RegisterEnricher(enrichSrv)
 	sdk.RegisterEnricher(enrichCmdStager)
 	sdk.RegisterEnricher(enrichScan)
 }
@@ -34,8 +35,6 @@ func enrichC2(_ sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	return append(opts,
 		sdk.OptAdvanced(sdk.OptEnum("C2", "shell", "C2 backend", "shell", "sslshell", "httpshell", "sliver")),
 		sdk.OptAdvanced(sdk.OptString("C2CONFIG", "", "C2 config file (sliver)")),
-		sdk.OptAdvanced(sdk.OptAddress("SRVHOST", "", "Local bind address (default: LHOST)")),
-		sdk.OptAdvanced(sdk.OptPort("SRVPORT", 0, "Local bind port (default: LPORT)")),
 		sdk.OptAdvanced(sdk.OptString("TUNNEL", "", "Tunnel URL for staging (ngrok, bore, cloudflared)")),
 		sdk.OptAdvanced(sdk.OptString("REMOTE_PATH", "", "Remote drop path (default: random /tmp)")),
 		sdk.OptAdvanced(sdk.OptInt("WAITSESSION", 30, "Session wait timeout in seconds")),
@@ -51,6 +50,16 @@ func enrichCmdStager(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
 	return append(opts,
 		sdk.OptAdvanced(sdk.OptEnum("CMDSTAGER", "printf", "CmdStager flavor", "printf", "bourne")),
 		sdk.OptAdvanced(sdk.OptInt("CMDSTAGER_LINEMAX", cmdstager.DefaultLineMax, "Max command line length")),
+	)
+}
+
+func enrichSrv(mod sdk.Exploit, opts []sdk.Option) []sdk.Option {
+	if _, ok := mod.(sdk.HTTPServerModule); !ok {
+		return opts
+	}
+	return append(opts,
+		sdk.OptAdvanced(sdk.OptPort("SRVPORT", 8080, "Exploit HTTP server port")),
+		sdk.OptAdvanced(sdk.OptEnum("SRVSSL", "false", "Use self-signed TLS for exploit server", "true", "false")),
 	)
 }
 
