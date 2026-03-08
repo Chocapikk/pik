@@ -44,6 +44,15 @@ func RegexFind(pattern, s string) string {
 	return match[1]
 }
 
+// HexEncode encodes a string to hexadecimal.
+func HexEncode(s string) string { return encode.Hex([]byte(s)) }
+
+// ROT13 applies ROT13 substitution cipher.
+func ROT13(s string) string { return encode.ROT13(s) }
+
+// Reverse returns the string reversed byte-by-byte.
+func Reverse(s string) string { return encode.Reverse(s) }
+
 // --- Binary packing ---
 
 // Buffer is a fluent binary packet builder for crafting protocol messages.

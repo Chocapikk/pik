@@ -11,3 +11,12 @@ func RandTextDefault(n int) string {
 func RandInt(min, max int) int {
 	return text.RandInt(min, max+1)
 }
+
+// RandAlpha returns a random mixed-case alphabetic string of length n.
+func RandAlpha(n int) string { return text.RandAlpha(n) }
+
+// RandBool returns a random boolean.
+func RandBool() bool { return text.RandBool() }
+
+// Shuffle returns a shuffled copy of a string slice.
+func Shuffle(items []string) []string { return text.Shuffle(items) }
