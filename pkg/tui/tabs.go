@@ -520,11 +520,8 @@ func (m consoleModel) updateConfigTab(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			if strings.EqualFold(opt.Name, "PAYLOAD") {
 				// Build payload fuzzy select directly (no Send, avoids deadlock)
-				platform := ""
-				if m.console.Mod() != nil {
-					platform = m.console.Mod().Info().Platform()
-				}
-				payloads := payload.ListForPlatform(platform)
+				t := m.console.SelectedTarget()
+				payloads := payload.ListFor(t.Type, t.Platform)
 				items := make([]fuzzyItem, len(payloads))
 				for i, pl := range payloads {
 					items[i] = fuzzyItem{Name: pl.Name, Desc: pl.Description}

@@ -70,6 +70,15 @@ func (c *Console) ApplyFuzzyResult(context, selected string) { c.applyFuzzyResul
 // SessionHandler returns the C2 session handler, or nil.
 func (c *Console) SessionHandler() c2.SessionHandler { return c.sessionHandler() }
 
+// SelectedTarget returns the currently selected target.
+// Returns an empty Target if no module is selected.
+func (c *Console) SelectedTarget() sdk.Target {
+	if c.mod == nil {
+		return sdk.Target{}
+	}
+	return c.activeTarget()
+}
+
 // ShutdownBackend shuts down the C2 backend.
 func (c *Console) ShutdownBackend() { c.shutdownBackend() }
 

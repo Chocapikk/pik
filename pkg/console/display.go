@@ -105,12 +105,8 @@ func (c *Console) showTargets() {
 }
 
 func (c *Console) showPayloads() {
-	platform := ""
-	if c.mod != nil {
-		platform = c.mod.Info().Platform()
-	}
-
-	payloads := payload.ListForPlatform(platform)
+	t := c.SelectedTarget()
+	payloads := payload.ListFor(t.Type, t.Platform)
 	if len(payloads) == 0 {
 		output.Warning("No payloads available")
 		return

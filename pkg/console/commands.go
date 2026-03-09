@@ -632,6 +632,12 @@ func (c *Console) cmdTarget(args []string) {
 	}
 	c.targetIdx = idx
 	c.importTargetDefaults()
+	if c.hasOpt("PAYLOAD") {
+		t := c.SelectedTarget()
+		if defPayload := payload.DefaultFor(t.Type, t.Platform); defPayload != nil {
+			c.setOpt("PAYLOAD", defPayload.Name)
+		}
+	}
 	output.Success("Target => %d - %s", idx, targets[idx].Name)
 }
 
@@ -662,12 +668,8 @@ func (c *Console) cmdResource(args []string) {
 // --- Payload selector ---
 
 func (c *Console) selectPayload() {
-	platform := ""
-	if c.mod != nil {
-		platform = c.mod.Info().Platform()
-	}
-
-	payloads := payload.ListForPlatform(platform)
+	t := c.SelectedTarget()
+	payloads := payload.ListFor(t.Type, t.Platform)
 	items := make([]FuzzyItem, len(payloads))
 	for i, pl := range payloads {
 		items[i] = FuzzyItem{Name: pl.Name, Desc: pl.Description}

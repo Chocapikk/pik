@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Chocapikk/pik/pkg/c2/session"
+	"github.com/Chocapikk/pik/pkg/payload"
 )
 
 // Backend is the interface for C2 integrations (built-in shell, Sliver, etc.).
@@ -75,10 +76,16 @@ type PayloadGen func(lhost string, lport int) string
 // PayloadMap is a map of payload names to generators.
 type PayloadMap map[string]PayloadGen
 
-// ResolvePayload looks up a payload by type in the map, falling back to the given default.
+// ResolvePayload looks up a payload by type in the backend's map first,
+// then falls back to the global payload registry, then to the default.
 func ResolvePayload(payloads PayloadMap, lhost string, lport int, payloadType string, fallback PayloadGen) (string, error) {
 	if gen, ok := payloads[payloadType]; ok {
 		return gen(lhost, lport), nil
+	}
+	if payloadType != "" {
+		if info := payload.GetPayload(payloadType); info != nil {
+			return info.Generate(lhost, lport), nil
+		}
 	}
 	return fallback(lhost, lport), nil
 }

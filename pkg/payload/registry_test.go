@@ -15,36 +15,65 @@ func TestListPayloads(t *testing.T) {
 		if pl.Generate == nil {
 			t.Errorf("payload %q has nil Generate func", pl.Name)
 		}
-		if pl.Platform == "" {
-			t.Errorf("payload %q has empty platform", pl.Name)
+		if pl.Type == "" {
+			t.Errorf("payload %q has empty type", pl.Name)
 		}
 	}
 }
 
-func TestListForPlatform(t *testing.T) {
-	linux := ListForPlatform("linux")
+func TestListFor(t *testing.T) {
+	// Filter by type only.
+	cmd := ListFor("cmd", "")
+	if len(cmd) == 0 {
+		t.Error("no cmd payloads")
+	}
+	for _, pl := range cmd {
+		if pl.Type != "cmd" {
+			t.Errorf("ListFor(cmd, '') returned type %q", pl.Type)
+		}
+	}
+
+	py := ListFor("py", "")
+	if len(py) == 0 {
+		t.Error("no py payloads")
+	}
+	for _, pl := range py {
+		if pl.Type != "py" {
+			t.Errorf("ListFor(py, '') returned type %q", pl.Type)
+		}
+	}
+
+	// Filter by type + platform.
+	linux := ListFor("cmd", "linux")
 	if len(linux) == 0 {
-		t.Error("no linux payloads")
+		t.Error("no cmd/linux payloads")
 	}
 	for _, pl := range linux {
 		if pl.Platform != "linux" {
-			t.Errorf("ListForPlatform(linux) returned %q platform", pl.Platform)
+			t.Errorf("ListFor(cmd, linux) returned platform %q", pl.Platform)
 		}
 	}
 
-	windows := ListForPlatform("windows")
+	windows := ListFor("cmd", "windows")
 	if len(windows) == 0 {
-		t.Error("no windows payloads")
+		t.Error("no cmd/windows payloads")
 	}
 	for _, pl := range windows {
 		if pl.Platform != "windows" {
-			t.Errorf("ListForPlatform(windows) returned %q platform", pl.Platform)
+			t.Errorf("ListFor(cmd, windows) returned platform %q", pl.Platform)
 		}
 	}
 
-	all := ListForPlatform("")
+	// py/ payloads are cross-platform, should appear for any platform.
+	pyLinux := ListFor("py", "linux")
+	if len(pyLinux) != len(py) {
+		t.Errorf("ListFor(py, linux) = %d, want %d (py payloads are cross-platform)", len(pyLinux), len(py))
+	}
+
+	// No filter = all.
+	all := ListFor("", "")
 	if len(all) != len(ListPayloads()) {
-		t.Error("ListForPlatform('') should return all payloads")
+		t.Error("ListFor('', '') should return all payloads")
 	}
 }
 
@@ -69,20 +98,25 @@ func TestGetPayloadNotFound(t *testing.T) {
 	}
 }
 
-func TestDefaultPayload(t *testing.T) {
-	linux := DefaultPayload("linux")
+func TestDefaultFor(t *testing.T) {
+	linux := DefaultFor("cmd", "linux")
 	if linux == nil || linux.Name != "cmd/bash/reverse_tcp" {
-		t.Errorf("DefaultPayload(linux) = %v", linux)
+		t.Errorf("DefaultFor(cmd, linux) = %v", linux)
 	}
 
-	windows := DefaultPayload("windows")
+	windows := DefaultFor("cmd", "windows")
 	if windows == nil || windows.Name != "cmd/powershell/reverse_tcp" {
-		t.Errorf("DefaultPayload(windows) = %v", windows)
+		t.Errorf("DefaultFor(cmd, windows) = %v", windows)
 	}
 
-	fallback := DefaultPayload("unknown")
+	py := DefaultFor("py", "")
+	if py == nil || py.Name != "py/reverse_tcp" {
+		t.Errorf("DefaultFor(py, '') = %v", py)
+	}
+
+	fallback := DefaultFor("", "unknown")
 	if fallback == nil || fallback.Name != "cmd/bash/reverse_tcp" {
-		t.Errorf("DefaultPayload(unknown) = %v", fallback)
+		t.Errorf("DefaultFor('', unknown) = %v", fallback)
 	}
 }
 

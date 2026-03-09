@@ -34,7 +34,8 @@ func (c *Console) initOptions() {
 	}
 
 	if c.hasOpt("PAYLOAD") && c.getOpt("PAYLOAD") == "" {
-		if defPayload := payload.DefaultPayload(c.mod.Info().Platform()); defPayload != nil {
+		t := c.SelectedTarget()
+		if defPayload := payload.DefaultFor(t.Type, t.Platform); defPayload != nil {
 			c.setOpt("PAYLOAD", defPayload.Name)
 		}
 	}
