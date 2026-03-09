@@ -2,10 +2,10 @@ package lab
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -15,7 +15,9 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/go-connections/nat"
+	"github.com/moby/term"
 
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/text"
@@ -134,13 +136,15 @@ func Start(ctx context.Context, name string, services []sdk.Service) error {
 				return fmt.Errorf("service %q: no image specified", svc.Name)
 			}
 
-			output.Status("Pulling %s", svc.Image)
-			reader, err := cli.ImagePull(ctx, svc.Image, image.PullOptions{})
-			if err != nil {
-				return fmt.Errorf("pull %s: %w", svc.Image, err)
-			}
-			if err := showPullProgress(reader); err != nil {
-				return fmt.Errorf("pull %s: %w", svc.Image, err)
+			if _, ierr := cli.ImageInspect(ctx, svc.Image); ierr != nil {
+				output.Status("Pulling %s", svc.Image)
+				reader, err := cli.ImagePull(ctx, svc.Image, image.PullOptions{})
+				if err != nil {
+					return fmt.Errorf("pull %s: %w", svc.Image, err)
+				}
+				if err := showPullProgress(reader); err != nil {
+					return fmt.Errorf("pull %s: %w", svc.Image, err)
+				}
 			}
 
 			cfg, hostCfg := toDocker(svc, name, randoms)
@@ -386,41 +390,12 @@ func toDocker(svc sdk.Service, labName string, randoms map[string]string) (*cont
 	return cfg, hostCfg
 }
 
-// showPullProgress reads the Docker image pull JSON stream and prints
-// status updates. Drains the reader fully so the pull completes.
+// showPullProgress displays Docker image pull progress using the SDK's
+// built-in DisplayJSONMessagesStream, same as `docker pull` CLI.
 func showPullProgress(reader io.ReadCloser) error {
 	defer reader.Close()
-
-	type pullMsg struct {
-		Status string `json:"status"`
-		ID     string `json:"id"`
-		Error  string `json:"error"`
-	}
-
-	dec := json.NewDecoder(reader)
-	var last string
-	for dec.More() {
-		var msg pullMsg
-		if err := dec.Decode(&msg); err != nil {
-			break
-		}
-		if msg.Error != "" {
-			return fmt.Errorf("%s", msg.Error)
-		}
-		// Only print meaningful status changes, not per-layer progress.
-		line := msg.Status
-		if msg.ID != "" {
-			line = msg.ID + ": " + msg.Status
-		}
-		if line != last && msg.Status != "" {
-			// Show final status lines (Pull complete, Digest, Status).
-			if msg.ID == "" || msg.Status == "Pull complete" || msg.Status == "Already exists" {
-				output.Status("%s", line)
-			}
-			last = line
-		}
-	}
-	return nil
+	fd, isTerm := term.GetFdInfo(os.Stderr)
+	return jsonmessage.DisplayJSONMessagesStream(reader, os.Stderr, fd, isTerm, nil)
 }
 
 // envSlice converts env map to Docker format, resolving sdk.Rand()
