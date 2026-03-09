@@ -25,6 +25,11 @@ func Base64Encode(s string) string {
 	return encode.Base64([]byte(s))
 }
 
+// Base64Raw encodes a string to base64 without '=' padding.
+func Base64Raw(s string) string {
+	return encode.Base64Raw([]byte(s))
+}
+
 // UTF16LEBase64 encodes a string as UTF-16LE then base64.
 // Used for PowerShell -EncodedCommand / -e payloads.
 func UTF16LEBase64(s string) string {
