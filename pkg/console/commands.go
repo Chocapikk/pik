@@ -191,14 +191,29 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				)
 				globalIdx++
 			} else {
-				// Multiple targets: let description flow untruncated.
+				// Multiple targets: wrap description at word boundary if needed.
+				descLine := desc
+				var descOverflow string
+				if len(desc) > maxDescW {
+					cut := maxDescW
+					if sp := strings.LastIndex(desc[:cut], " "); sp > 0 {
+						cut = sp
+					}
+					descLine = desc[:cut]
+					descOverflow = strings.TrimLeft(desc[cut:], " ")
+				}
 				output.Print("  %s  %s  %s  %s  %s\n",
 					log.Pad("", 3),
 					log.Pad(log.Amber(e.shortName), nameW),
 					log.Pad(reliabilityStyle(info.Reliability), relW),
-					desc,
+					log.Pad(descLine, descW),
 					log.Yellow(cveStr),
 				)
+				if descOverflow != "" {
+					// Indent to description column: 2 + 3 + 2 + nameW + 2 + relW + 2
+					pad := 11 + nameW + relW
+					output.Print("%s%s\n", strings.Repeat(" ", pad), descOverflow)
+				}
 				// Compute max type width for alignment.
 				typeW := 3
 				for _, t := range info.Targets {
