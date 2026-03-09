@@ -116,7 +116,27 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 	}
 
 	relW := 11
-	maxDescW := termW - (4 + nameW + 2 + relW + 2 + 2 + 14)
+
+	// Compute CVE column width from actual data.
+	cveW := 4
+	for _, entries := range groups {
+		for _, e := range entries {
+			cves := e.mod.Info().CVEs()
+			cveStr := "-"
+			if len(cves) == 1 {
+				cveStr = cves[0]
+			} else if len(cves) > 1 {
+				cveStr = fmt.Sprintf("%d CVEs", len(cves))
+			}
+			if w := len(cveStr); w > cveW {
+				cveW = w
+			}
+		}
+	}
+
+	// leading(2) + #(3) + 4 gaps(2 each) + nameW + relW + cveW
+	fixed := 13 + nameW + relW + cveW
+	maxDescW := termW - fixed
 	if maxDescW < 20 {
 		maxDescW = 20
 	}
