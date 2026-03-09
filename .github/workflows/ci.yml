@@ -24,12 +24,12 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test ./... -count=1 -coverprofile=coverage.out
+        run: go test ./... -count=1 -coverprofile=coverage.out | tee test-output.txt
 
       - name: Update coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          PCT=$(go tool cover -func=coverage.out | grep ^total: | awk '{print $3}' | tr -d '%')
+          PCT=$(LC_ALL=C awk '/^ok/ && /coverage:/ { for(i=1;i<=NF;i++) if($i=="coverage:") { v=$(i+1); gsub(/%/,"",v); sum+=v; n++; break } } END { if(n>0) printf "%.1f", sum/n }' test-output.txt)
           COLOR=red
           if [ "$(echo "$PCT >= 90" | bc)" -eq 1 ]; then COLOR=brightgreen
           elif [ "$(echo "$PCT >= 75" | bc)" -eq 1 ]; then COLOR=green
