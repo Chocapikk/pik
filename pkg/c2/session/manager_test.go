@@ -214,6 +214,22 @@ func TestCloseIdempotent(t *testing.T) {
 	mgr.Close() // should not panic
 }
 
+func TestAcceptZeroTimeout(t *testing.T) {
+	mgr, ln := startManager(t)
+
+	conn := dial(t, ln)
+	defer conn.Close()
+
+	sess, err := mgr.Accept(0)
+	if err != nil {
+		t.Fatalf("Accept(0): %v", err)
+	}
+	if sess == nil {
+		t.Fatal("expected session")
+	}
+	mgr.Close()
+}
+
 func TestAcceptAfterClose(t *testing.T) {
 	mgr, _ := startManager(t)
 	mgr.Close()
@@ -221,5 +237,19 @@ func TestAcceptAfterClose(t *testing.T) {
 	_, err := mgr.Accept(50 * time.Millisecond)
 	if err == nil {
 		t.Error("Accept after Close should return error")
+	}
+}
+
+func TestAcceptZeroTimeoutAfterClose(t *testing.T) {
+	mgr, _ := startManager(t)
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		mgr.Close()
+	}()
+
+	_, err := mgr.Accept(0)
+	if err == nil {
+		t.Error("Accept(0) after Close should return error")
 	}
 }

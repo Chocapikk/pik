@@ -35,6 +35,16 @@ func TestReverseShellsContainHostPort(t *testing.T) {
 		{"Lua", Lua},
 		{"NodeJS", NodeJS},
 		{"Awk", Awk},
+		// TLS reverse shells
+		{"BashTLS", BashTLS},
+		{"PythonTLS", PythonTLS},
+		{"NcatTLS", NcatTLS},
+		{"SocatTLS", SocatTLS},
+		// HTTP reverse shells
+		{"CurlHTTP", CurlHTTP},
+		{"WgetHTTP", WgetHTTP},
+		{"PHPHTTP", PHPHTTP},
+		{"PythonHTTP", PythonHTTP},
 	}
 
 	for _, gen := range generators {

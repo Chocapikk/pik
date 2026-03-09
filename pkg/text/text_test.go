@@ -137,3 +137,56 @@ func TestRandTextUniqueness(t *testing.T) {
 		seen[got] = true
 	}
 }
+
+func TestShuffle(t *testing.T) {
+	original := []string{"alpha", "bravo", "charlie", "delta", "echo"}
+	origCopy := make([]string, len(original))
+	copy(origCopy, original)
+
+	result := Shuffle(original)
+
+	// Length must match
+	if len(result) != len(original) {
+		t.Errorf("Shuffle returned %d items, want %d", len(result), len(original))
+	}
+
+	// Original slice must be unchanged
+	for i, v := range original {
+		if v != origCopy[i] {
+			t.Errorf("original[%d] changed from %q to %q", i, origCopy[i], v)
+		}
+	}
+
+	// All elements must be present in the result
+	counts := make(map[string]int)
+	for _, v := range original {
+		counts[v]++
+	}
+	for _, v := range result {
+		counts[v]--
+	}
+	for k, v := range counts {
+		if v != 0 {
+			t.Errorf("element %q count mismatch: %d", k, v)
+		}
+	}
+}
+
+func TestShuffleEmpty(t *testing.T) {
+	result := Shuffle(nil)
+	if len(result) != 0 {
+		t.Errorf("Shuffle(nil) returned %d items, want 0", len(result))
+	}
+
+	result = Shuffle([]string{})
+	if len(result) != 0 {
+		t.Errorf("Shuffle([]) returned %d items, want 0", len(result))
+	}
+}
+
+func TestShuffleSingleElement(t *testing.T) {
+	result := Shuffle([]string{"only"})
+	if len(result) != 1 || result[0] != "only" {
+		t.Errorf("Shuffle single element = %v, want [only]", result)
+	}
+}

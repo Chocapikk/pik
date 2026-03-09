@@ -26,6 +26,20 @@ func TestNewSession(t *testing.T) {
 	}
 }
 
+func TestSetAlive(t *testing.T) {
+	_, client := net.Pipe()
+	defer client.Close()
+	sess := newSession(1, client)
+	sess.SetAlive(false)
+	if sess.Alive() {
+		t.Error("should be dead after SetAlive(false)")
+	}
+	sess.SetAlive(true)
+	if !sess.Alive() {
+		t.Error("should be alive after SetAlive(true)")
+	}
+}
+
 func TestClose(t *testing.T) {
 	_, client := net.Pipe()
 
