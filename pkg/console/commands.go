@@ -12,6 +12,9 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/charmbracelet/lipgloss"
+	lgtable "github.com/charmbracelet/lipgloss/table"
+
 	"github.com/Chocapikk/pik/pkg/log"
 	"github.com/Chocapikk/pik/pkg/output"
 	"github.com/Chocapikk/pik/pkg/payload"
@@ -94,7 +97,6 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		if _, seen := groups[dir]; !seen {
 			groupOrder = append(groupOrder, dir)
 		}
-		// Find global index in sdk.List() for use <id>.
 		idx := -1
 		for i, m := range allMods {
 			if m == mod {
@@ -105,7 +107,8 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		groups[dir] = append(groups[dir], entry{idx, short, mod})
 	}
 
-	// Compute short name column width.
+	// Compute description column budget.
+	// #(3) + Name(longest) + Reliability(11) + CVE(longest) + 5 gaps(2) + border(2)
 	nameW := 4
 	for _, entries := range groups {
 		for _, e := range entries {
@@ -114,10 +117,6 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			}
 		}
 	}
-
-	relW := 11
-
-	// Compute CVE column width from actual data.
 	cveW := 4
 	for _, entries := range groups {
 		for _, e := range entries {
@@ -133,39 +132,16 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			}
 		}
 	}
-
-	// leading(2) + #(3) + 4 gaps(2 each) + nameW + relW + cveW
-	fixed := 13 + nameW + relW + cveW
-	maxDescW := termW - fixed
+	maxDescW := termW - (3 + nameW + 11 + cveW + 12)
 	if maxDescW < 20 {
 		maxDescW = 20
 	}
 
-	// Compute description column width from actual data.
-	descW := 4
-	for _, entries := range groups {
-		for _, e := range entries {
-			desc := e.mod.Info().Title()
-			if len(desc) > maxDescW {
-				desc = desc[:maxDescW-3] + "..."
-			}
-			if w := len(desc); w > descW {
-				descW = w
-			}
-		}
-	}
-
-	output.Println()
-	output.Print("  %s  %s  %s  %s  %s\n",
-		log.Pad(log.UnderlineText("#"), 3),
-		log.Pad(log.UnderlineText("Name"), nameW),
-		log.Pad(log.UnderlineText("Reliability"), relW),
-		log.Pad(log.UnderlineText("Description"), descW),
-		log.UnderlineText("CVEs"),
-	)
+	// Build rows.
+	var rows [][]string
 	globalIdx := 0
 	for _, dir := range groupOrder {
-		output.Print("  %s  %s\n", log.Pad("", 3), log.Muted(dir+"/"))
+		rows = append(rows, []string{"", log.Muted(dir + "/"), "", "", ""})
 		for _, e := range groups[dir] {
 			info := e.mod.Info()
 			desc := info.Title()
@@ -178,43 +154,33 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			}
 
 			if len(info.Targets) <= 1 {
-				// Single target or no target: truncate description.
+				// Single target: truncate at word boundary.
 				if len(desc) > maxDescW {
-					desc = desc[:maxDescW-3] + "..."
-				}
-				output.Print("  %s  %s  %s  %s  %s\n",
-					log.Pad(log.Amber(fmt.Sprintf("%d", globalIdx)), 3),
-					log.Pad(log.Amber(e.shortName), nameW),
-					log.Pad(reliabilityStyle(info.Reliability), relW),
-					log.Pad(desc, descW),
-					log.Yellow(cveStr),
-				)
-				globalIdx++
-			} else {
-				// Multiple targets: wrap description at word boundary if needed.
-				descLine := desc
-				var descOverflow string
-				if len(desc) > maxDescW {
-					cut := maxDescW
+					cut := maxDescW - 3
 					if sp := strings.LastIndex(desc[:cut], " "); sp > 0 {
 						cut = sp
 					}
-					descLine = desc[:cut]
-					descOverflow = strings.TrimLeft(desc[cut:], " ")
+					desc = desc[:cut] + "..."
 				}
-				output.Print("  %s  %s  %s  %s  %s\n",
-					log.Pad("", 3),
-					log.Pad(log.Amber(e.shortName), nameW),
-					log.Pad(reliabilityStyle(info.Reliability), relW),
-					log.Pad(descLine, descW),
+				rows = append(rows, []string{
+					log.Amber(fmt.Sprintf("%d", globalIdx)),
+					log.Amber(e.shortName),
+					reliabilityStyle(info.Reliability),
+					desc,
 					log.Yellow(cveStr),
-				)
-				if descOverflow != "" {
-					// Indent to description column: 2 + 3 + 2 + nameW + 2 + relW + 2
-					pad := 11 + nameW + relW
-					output.Print("%s%s\n", strings.Repeat(" ", pad), descOverflow)
-				}
-				// Compute max type width for alignment.
+				})
+				globalIdx++
+			} else {
+				// Multi-target: split desc overflow into tree sub-rows.
+				descLines := wrapWords(desc, maxDescW)
+				rows = append(rows, []string{
+					"",
+					log.Amber(e.shortName),
+					reliabilityStyle(info.Reliability),
+					descLines[0],
+					log.Yellow(cveStr),
+				})
+				overflow := descLines[1:]
 				typeW := 3
 				for _, t := range info.Targets {
 					if w := len(t.Type); w > typeW {
@@ -234,18 +200,63 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 					if len(t.Arches) > 0 {
 						arches = " (" + strings.Join(t.Arches, ", ") + ")"
 					}
-					output.Print("  %s  %s %s  %s\n",
-						log.Pad(log.Amber(fmt.Sprintf("%d", globalIdx)), 3),
-						log.Muted(branch),
-						log.Pad(log.Muted(t.Type), typeW),
-						log.Muted(tName+arches),
-					)
+					descPart := ""
+					if i < len(overflow) {
+						descPart = overflow[i]
+					}
+					rows = append(rows, []string{
+						log.Amber(fmt.Sprintf("%d", globalIdx)),
+						log.Muted(branch) + " " + log.Pad(log.Muted(t.Type), typeW) + "  " + log.Muted(tName+arches),
+						"",
+						descPart,
+						"",
+					})
 					globalIdx++
+				}
+				// Remaining overflow lines after all targets.
+				for i := len(info.Targets); i < len(overflow); i++ {
+					rows = append(rows, []string{"", "", "", overflow[i], ""})
 				}
 			}
 		}
 	}
+
+	t := lgtable.New().
+		Headers("#", "Name", "Reliability", "Description", "CVEs").
+		Rows(rows...).
+		Border(lipgloss.HiddenBorder()).
+		Width(termW).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			s := lipgloss.NewStyle().PaddingRight(1)
+			if row == lgtable.HeaderRow {
+				s = s.Underline(true)
+			}
+			return s
+		})
+
 	output.Println()
+	output.Print("%s\n", t.Render())
+	output.Println()
+}
+
+// wrapWords splits s into lines of at most width chars, breaking at spaces.
+func wrapWords(s string, width int) []string {
+	if len(s) <= width {
+		return []string{s}
+	}
+	var lines []string
+	for len(s) > width {
+		cut := width
+		if sp := strings.LastIndex(s[:cut], " "); sp > 0 {
+			cut = sp
+		}
+		lines = append(lines, s[:cut])
+		s = strings.TrimLeft(s[cut:], " ")
+	}
+	if s != "" {
+		lines = append(lines, s)
+	}
+	return lines
 }
 
 func splitModulePath(full string) (string, string) {
