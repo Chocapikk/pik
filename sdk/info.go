@@ -85,7 +85,7 @@ func (r CheckResult) FormatReason() string {
 	return ""
 }
 
-// Check result constructors - match MSF's CheckCode::Vulnerable() style.
+// Check result constructors.
 func Vulnerable(reason string, details ...string) (CheckResult, error) {
 	return CheckResult{Code: CheckVulnerable, Reason: reason, Details: pairs(details)}, nil
 }
@@ -123,7 +123,7 @@ const (
 	Passive    Stance = "passive"    // read-only, no side effects
 )
 
-// --- Notes (MSF-style stability/side-effects metadata) ---
+// --- Notes (stability/side-effects metadata) ---
 
 type Notes struct {
 	Stability   []string // CRASH_SAFE, CRASH_UNSAFE, SERVICE_RESTART
