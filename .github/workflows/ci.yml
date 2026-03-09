@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,6 +25,27 @@ jobs:
 
       - name: Test
         run: go test ./... -count=1 -coverprofile=coverage.out
+
+      - name: Update coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          PCT=$(go tool cover -func=coverage.out | grep ^total: | awk '{print $3}' | tr -d '%')
+          COLOR=red
+          if [ "$(echo "$PCT >= 90" | bc)" -eq 1 ]; then COLOR=brightgreen
+          elif [ "$(echo "$PCT >= 75" | bc)" -eq 1 ]; then COLOR=green
+          elif [ "$(echo "$PCT >= 60" | bc)" -eq 1 ]; then COLOR=yellow
+          elif [ "$(echo "$PCT >= 40" | bc)" -eq 1 ]; then COLOR=orange
+          fi
+          sed -i "s|coverage-[0-9.]*%25-[a-z]*|coverage-${PCT}%25-${COLOR}|" README.md
+          if git diff --quiet README.md; then
+            echo "Badge already up to date"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "Docs: Update coverage badge to ${PCT}%"
+            git push
+          fi
 
       - name: Build
         run: go build -trimpath -ldflags="-X github.com/Chocapikk/pik/pkg/cli.Version=ci" ./cmd/pik/
