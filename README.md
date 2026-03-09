@@ -1,7 +1,7 @@
 # pik
 
 [![CI](https://github.com/Chocapikk/pik/actions/workflows/ci.yml/badge.svg)](https://github.com/Chocapikk/pik/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-41.9%25-orange)](https://github.com/Chocapikk/pik/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-79.1%25-green)](https://github.com/Chocapikk/pik/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Chocapikk/pik)](https://github.com/Chocapikk/pik/releases/latest)
 [![License](https://img.shields.io/github/license/Chocapikk/pik)](LICENSE)
 
