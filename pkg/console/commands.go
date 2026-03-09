@@ -169,9 +169,6 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 		for _, e := range groups[dir] {
 			info := e.mod.Info()
 			desc := info.Title()
-			if len(desc) > maxDescW {
-				desc = desc[:maxDescW-3] + "..."
-			}
 			cves := info.CVEs()
 			cveStr := "-"
 			if len(cves) == 1 {
@@ -181,7 +178,10 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 			}
 
 			if len(info.Targets) <= 1 {
-				// Single target or no target: ID on the module line.
+				// Single target or no target: truncate description.
+				if len(desc) > maxDescW {
+					desc = desc[:maxDescW-3] + "..."
+				}
 				output.Print("  %s  %s  %s  %s  %s\n",
 					log.Pad(log.Amber(fmt.Sprintf("%d", globalIdx)), 3),
 					log.Pad(log.Amber(e.shortName), nameW),
@@ -191,12 +191,12 @@ func (c *Console) printModuleTable(modules []sdk.Exploit) {
 				)
 				globalIdx++
 			} else {
-				// Multiple targets: module line with no ID, target IDs in # column.
+				// Multiple targets: let description flow untruncated.
 				output.Print("  %s  %s  %s  %s  %s\n",
 					log.Pad("", 3),
 					log.Pad(log.Amber(e.shortName), nameW),
 					log.Pad(reliabilityStyle(info.Reliability), relW),
-					log.Pad(desc, descW),
+					desc,
 					log.Yellow(cveStr),
 				)
 				// Compute max type width for alignment.
