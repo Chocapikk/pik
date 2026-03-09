@@ -1,5 +1,10 @@
 # pik
 
+[![CI](https://github.com/Chocapikk/pik/actions/workflows/ci.yml/badge.svg)](https://github.com/Chocapikk/pik/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-97.1%25-brightgreen)](https://github.com/Chocapikk/pik/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Chocapikk/pik)](https://github.com/Chocapikk/pik/releases/latest)
+[![License](https://img.shields.io/github/license/Chocapikk/pik)](LICENSE)
+
 Go exploit framework. Write exploits once, run them as standalone binaries or inside the framework with an interactive console.
 
 ## Install
