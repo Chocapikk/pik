@@ -431,10 +431,17 @@ const (
 	FakeData Feature = "fake"
 )
 
+var linuxCmd = Target{Name: "Unix/Linux Command Shell", Platform: "linux", Type: "cmd"}
+var windowsCmd = Target{Name: "Windows Command Shell", Platform: "windows", Type: "cmd"}
+
 // LinuxCmd returns a single Linux command shell target.
-func LinuxCmd() []Target {
-	return []Target{{Name: "Unix/Linux Command Shell", Platform: "linux", Type: "cmd"}}
-}
+func LinuxCmd() []Target { return []Target{linuxCmd} }
+
+// WindowsCmd returns a single Windows command shell target.
+func WindowsCmd() []Target { return []Target{windowsCmd} }
+
+// MultiCmd returns Linux and Windows command shell targets.
+func MultiCmd() []Target { return []Target{linuxCmd, windowsCmd} }
 
 // SingleLab wraps a single service into a Lab.
 func SingleLab(name, image string, ports ...string) Lab {
