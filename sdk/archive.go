@@ -13,11 +13,19 @@ type TarEntry struct {
 }
 
 // BuildTarGz creates a tar.gz archive from the given entries.
+// bytes.Buffer is the underlying writer, so Write never fails.
 func BuildTarGz(entries []TarEntry) ([]byte, error) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gw)
+	_ = writeTarEntries(tw, entries)
+	_ = tw.Close()
+	_ = gw.Close()
+	return buf.Bytes(), nil
+}
 
+// writeTarEntries writes entries to a tar.Writer.
+func writeTarEntries(tw *tar.Writer, entries []TarEntry) error {
 	for _, e := range entries {
 		if len(e.Body) == 0 && (len(e.Name) == 0 || e.Name[len(e.Name)-1] == '/') {
 			if err := tw.WriteHeader(&tar.Header{
@@ -25,7 +33,7 @@ func BuildTarGz(entries []TarEntry) ([]byte, error) {
 				Name:     e.Name,
 				Mode:     0755,
 			}); err != nil {
-				return nil, err
+				return err
 			}
 			continue
 		}
@@ -34,18 +42,11 @@ func BuildTarGz(entries []TarEntry) ([]byte, error) {
 			Mode: 0644,
 			Size: int64(len(e.Body)),
 		}); err != nil {
-			return nil, err
+			return err
 		}
 		if _, err := tw.Write(e.Body); err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-	if err := gw.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return nil
 }

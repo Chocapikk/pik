@@ -127,6 +127,13 @@ func callerModuleName(skip int) string {
 	if !ok {
 		panic("sdk.Register: cannot determine caller")
 	}
+	return moduleNameFromPath(file)
+}
+
+// moduleNameFromPath extracts the module name from a file path.
+// If the path contains "modules/", everything after that marker (minus extension)
+// is used. Otherwise, falls back to the base filename without extension.
+func moduleNameFromPath(file string) string {
 	const marker = "modules/"
 	if idx := strings.LastIndex(file, marker); idx != -1 {
 		rel := file[idx+len(marker):]
